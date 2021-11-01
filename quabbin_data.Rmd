@@ -1,0 +1,234 @@
+---
+title: "quabbin_data"
+author: "Abby_Robinson"
+date: "11/1/2021"
+output: html_document
+---
+
+##load the dataset 
+```{r}
+setwd("/Users/AbbyRobinson/Desktop/Summer 2021 Data")
+data <- read.csv("summer.2021.R.data.csv")
+data
+```
+
+##subset "yes" data (definite attacks)
+```{r}
+yes.data <- subset(data, STATUS == "yes", drop = FALSE)
+yes.data
+
+learningdata <- subset(yes.data, PHASE == "learning", drop = FALSE)
+learningdata
+
+testingdata <- subset(yes.data, PHASE == "testing", drop = FALSE)
+testingdata
+```
+
+##total bird attacks for battus and junonia across all three learning phases 
+```{r}
+table(learningdata$SPECIES, learningdata$DAY)
+chisq.test(table(learningdata$SPECIES, learningdata$DAY))
+#this chi squared isn't working and I'm not sure why... 
+```
+##Subset junonia across all learning phase tranects 
+
+```{r}
+JL<- subset(learningdata, SPECIES == "junonia", drop = FALSE)
+JL
+table(JL$ATTACKS, JL$DAY)
+barplot(table(JL$ATTACKS, JL$DAY))
+```
+##Subset battus across all learning phase tranects 
+
+```{r}
+BL<- subset(learningdata, SPECIES == "battus", drop = FALSE)
+BL
+table(BL$ATTACKS, BL$DAY)
+barplot(table(BL$ATTACKS, BL$DAY))
+```
+```{r}
+barplot(table(JL$ATTACKS, JL$DAY))
+barplot(table(BL$ATTACKS, BL$DAY))
+```
+```{r}
+battus.aov <- aov(BL$ATTACKS ~ BL$DAY)
+summary(battus.aov)
+```
+Anova not significant for battus attacks over 4 days
+
+
+
+
+
+
+#Transect 1
+
+##definite (yes) attacks for transect 1 (learning phase)
+```{r}
+T1 <- subset(learningdata, TRANSECT == "1", drop = FALSE)
+table(T1$ATTACKS, T1$SPECIES)
+barplot(table(T1$ATTACKS, T1$SPECIES))
+```
+
+##subset junonia data from learning phase, transect 1
+```{r}
+junonia <- subset(T1, SPECIES == "junonia", drop = FALSE)
+
+table(junonia$ATTACKS, junonia$DAY)
+```
+
+##subset battus data from learning phase, transect 1
+
+```{r}
+battus <- subset(T1, SPECIES == "battus", drop = FALSE)
+
+table(battus$ATTACKS, battus$DAY) #zero attacks on day 4
+```
+
+#Transect 2
+
+##definite (yes) attacks for transect 2 (learning phase)
+```{r}
+T2 <- subset(learningdata, TRANSECT == "2", drop = FALSE)
+table(T2$ATTACKS, T2$SPECIES)
+barplot(table(T2$ATTACKS, T2$SPECIES))
+```
+
+##subset junonia data from learning phase, transect 2
+
+```{r}
+junonia <- subset(T2, SPECIES == "junonia", drop = FALSE)
+
+table(junonia$ATTACKS, junonia$DAY) #zero attacks on day 3
+```
+
+##subset battus data from learning phase, transect 2
+
+```{r}
+battus <- subset(T2, SPECIES == "battus", drop = FALSE)
+
+table(battus$ATTACKS, battus$DAY) #zero attacks on days 2 and 3
+```
+
+#Transect 3
+
+##definite (yes) attacks for transect 3 (learning phase)
+```{r}
+T3 <- subset(learningdata, TRANSECT == "3", drop = FALSE)
+?barplot()
+barplot(table(T3$ATTACKS, T3$SPECIES))
+```
+
+#Testing Phase Attack Totals
+
+##subset testing phase transect 1 (only yes attacks)
+
+```{r}
+tp1 <- subset(testingdata, TRANSECT == "1", drop = FALSE)
+table(tp1$ATTACKS, tp1$SPECIES)
+barplot(table(tp1$ATTACKS, tp1$SPECIES))
+
+test1 <- chisq.test(table(tp1$ATTACKS, tp1$SPECIES))
+test1
+
+#attacks on the mimic are not significantly different from attacks on the control 
+```
+##subset testing phase transect 2 (only yes attacks)
+
+```{r}
+tp2 <- subset(testingdata, TRANSECT == "2", drop = FALSE)
+table(tp2$ATTACKS, tp2$SPECIES)
+barplot(table(tp2$ATTACKS, tp2$SPECIES))
+
+test2 <- chisq.test(table(tp2$ATTACKS, tp2$SPECIES))
+test2
+#attacks on the mimic not significantly different from attacks on the control 
+#do i need to show that attacks are not significantly different across 4 days in the field in order for this to show learning? (or the absence of learning...)
+```
+
+##subset testing phase transect 3 (only yes attacks)
+
+```{r}
+tp3 <- subset(testingdata, TRANSECT == "3", drop = FALSE)
+table(tp3$ATTACKS, tp3$SPECIES)
+barplot(table(tp3$ATTACKS, tp3$SPECIES))
+
+test3 <- chisq.test(table(tp3$ATTACKS, tp3$SPECIES))
+test3
+#attacks on the mimic are not significantly different from attacks on the control 
+```
+##subset testing phase transect 4 (only yes attacks)
+
+```{r}
+tp4 <- subset(testingdata, TRANSECT == "4", drop = FALSE)
+table(tp4$ATTACKS, tp4$SPECIES)
+barplot(table(tp4$ATTACKS, tp4$SPECIES))
+```
+```{r}
+test4 <- chisq.test(table(tp4$ATTACKS, tp4$SPECIES))
+test4
+#p-value = 0.01312! significant, right?? 
+#do I need to do a post hoc test to show that attacks on battus and limenitis are significantly lower than attacks on junonia?
+```
+
+##calculating **survivorship** scores by finding the total number of attacks on each species and dividing that by the total facsimilies of each species in the field 
+
+
+#plots to get regression lines? 
+
+##plotted attack rates in junonia across 4 days for learning phase transect 1
+```{r}
+x <- c()
+y <- c()
+plot(x, y, main = "Main title",
+     xlab = "X axis title", ylab = "Y axis title",
+     pch = 19, frame = FALSE)
+
+abline(lm(x ~ y, data = junonia), col = "blue")
+lm(x ~ y, data = junonia)
+```
+
+##plotted attack rates in battus  across 4 days for learning phase transect 1
+```{r}
+table(yes.data.LP$SPECIES, yes.data.LP$DAY)
+T1 <- subset(yes.data.LP, TRANSECT == "1", drop = FALSE)
+battus <- subset(T1, SPECIES == "battus", drop = FALSE)
+battus
+aggregate(x= battus$ATTACKS, by= list(battus$DAY), FUN=sum)
+
+
+x <- c()
+y <- c()
+plot(x, y, main = "Main title",
+     xlab = "X axis title", ylab = "Y axis title",
+     pch = 19, frame = FALSE)
+
+abline(lm(x ~ y, data = battus), col = "blue")
+lm(x ~ y, data = battus)
+```
+
+##ANCOVA to compare differences in the slope of the two regression lines? 
+```{r}
+test <- chisq.test(table(yes.data.LP$SPECIES, yes.data.LP$DAY))
+test
+```
+run chi squared analysis to determine if there are significantly different attack rates on junonia in learning and testing phase data 
+
+
+
+
+
+***show that there is no difference in the attack rates on battus across the three transects and for junonia so justify grouping all three learning phase transects together for analysis of learning 
+
+
+NOTES: 
+-showing differences across four days of the experiment might not work (probably won't be significant) - is there a better way to do this other than finding a test to compare differences in slope across 4 days? 
+
+-BUT, attack rates between the three species should work! (this we can use a chi-squared for?)
+
+
+This I need to do: 
+1. demonstrate significant decline in battus learning over 4 days
+2. demonstrate no significant learning of mimic phenotype in testing phase 
+
+
