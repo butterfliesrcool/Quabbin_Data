@@ -1,5 +1,5 @@
 ---
-title: "quabbin_data"
+title: "ALL_DATA:quabbin_data"
 author: "Abby_Robinson"
 date: "11/1/2021"
 output: html_document
@@ -28,15 +28,116 @@ testingdata
 ```{r}
 table(learningdata$SPECIES, learningdata$DAY)
 chisq.test(table(learningdata$SPECIES, learningdata$DAY))
+
+table(learningdata$ATTACKS, learningdata$SPECIES)
+chisq.test(table(learningdata$ATTACKS, learningdata$SPECIES))
 #this chi squared isn't working and I'm not sure why... 
+
+#battus 
+(1500 - 20)/1500 #0.9866667 survival rate 
+(1500 - 23)/1500 #0.9846667 survival rate 
+(1500 - 26)/1500 #0.9826667 survival rate 
+(1500 - 28)/1500 #0.9813333 survival rate 
+
+#junonia 
+(1500 - 16)/1500 #0.9893333 survival rate 
+(1500 - 25)/1500 #0.9833333 survival rate 
+(1500 - 29)/1500 #0.9806667 survival rate 
+(1500 - 37)/1500 #0.9753333 survival rate 
 ```
+
+```{r}
+library(survival)
+library(cmprsk)
+
+
+JL<- subset(learningdata, SPECIES == "junonia", drop = FALSE)
+JL
+
+ci_fit <- 
+  cuminc(
+    ftime  = learningdata$DAY, 
+    fstatus = learningdata$ATTACKS, 
+    group = learningdata$SPECIES,
+    cencode = 2
+    )
+plot(ci_fit)
+```
+
+
+```{r}
+surv <- survfit(Surv(DAY, ATTACKS) ~ SPECIES, data= learningdata)
+plot(surv)#comparing survival between groups
+
+coxph(Surv(DAY, ATTACKS) ~ SPECIES, data = learningdata)
+survdiff(Surv(DAY, ATTACKS) ~ SPECIES, data= learningdata) #p-value = 0.04.... barely significant? 
+```
+```{r}
+library(ggplot2)
+library(survival)
+library(survminer)
+ggsurvplot(
+    fit = survfit(Surv(DAY, ATTACKS) ~ SPECIES, data= learningdata), 
+    xlab = "Days", 
+    ylab = "survival")
+```
+
+
+
+
+
+
+
+
 ##Subset junonia across all learning phase tranects 
 
 ```{r}
 JL<- subset(learningdata, SPECIES == "junonia", drop = FALSE)
 JL
-table(JL$ATTACKS, JL$DAY)
-barplot(table(JL$ATTACKS, JL$DAY))
+
+
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data= JL)
+plot(surv)
+
+BL<- subset(learningdata, SPECIES == "battus", drop = FALSE)
+BL
+
+
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data= BL)
+plot(surv)
+```
+##calculating **survivorship** scores by finding the total number of attacks on each species and dividing that by the total facsimilies of each species in the field 
+
+From Susan's paper: To examine butterfly survivorship curves across the four- day experimental period, we used a Cox proportional-hazards regression model for survival data in R (Fox and Weisberg 2011; Seymoure and Aiello 2015; R Development Core Team 2016 [“survival” package])
+
+**general linear model with Poisson distribution**
+```{r}
+l <- subset(data, PHASE == "learning", drop = FALSE)
+l
+j <- subset(l, SPECIES == "junonia", drop = FALSE)
+j
+library(survival)
+?Surv()
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data=j)
+plot(surv)
+```
+```{r}
+l <- subset(data, PHASE == "learning", drop = FALSE)
+l
+b <- subset(l, SPECIES == "battus", drop = FALSE)
+b
+library(survival)
+?Surv()
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data=b)
+plot(surv)
+```
+
+
+```{r}
+library(survival)
+?Surv()
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data=JL)
+plot(surv)
 ```
 ##Subset battus across all learning phase tranects 
 
@@ -67,7 +168,9 @@ Anova not significant for battus attacks over 4 days
 ```{r}
 T1 <- subset(learningdata, TRANSECT == "1", drop = FALSE)
 table(T1$ATTACKS, T1$SPECIES)
-barplot(table(T1$ATTACKS, T1$SPECIES))
+ (table(T1$ATTACKS, T1$SPECIES))
+test.a <- chisq.test(table(T1$ATTACKS, T1$SPECIES))
+test.a
 ```
 
 ##subset junonia data from learning phase, transect 1
@@ -92,6 +195,8 @@ table(battus$ATTACKS, battus$DAY) #zero attacks on day 4
 T2 <- subset(learningdata, TRANSECT == "2", drop = FALSE)
 table(T2$ATTACKS, T2$SPECIES)
 barplot(table(T2$ATTACKS, T2$SPECIES))
+test.b <- chisq.test(table(T2$ATTACKS, T2$SPECIES))
+test.b
 ```
 
 ##subset junonia data from learning phase, transect 2
@@ -117,6 +222,7 @@ table(battus$ATTACKS, battus$DAY) #zero attacks on days 2 and 3
 T3 <- subset(learningdata, TRANSECT == "3", drop = FALSE)
 ?barplot()
 barplot(table(T3$ATTACKS, T3$SPECIES))
+table(T3$ATTACKS, T3$SPECIES)
 ```
 
 #Testing Phase Attack Totals
@@ -133,6 +239,21 @@ test1
 
 #attacks on the mimic are not significantly different from attacks on the control 
 ```
+
+Calculate attack proportions
+
+junonia, transect 1 (testing phase)
+```{r}
+j <- subset(tp1, SPECIES == "junonia", drop = FALSE)
+length(j) 
+#7 attacks on junonia
+#500 facsimilies in each transect (20 sites, 25 junonia facsimilies in each site)
+7/500 #1.4% attack rate on junonia 
+
+13/500 #2.6% attack rate on limenitis 
+```
+
+
 ##subset testing phase transect 2 (only yes attacks)
 
 ```{r}
@@ -145,6 +266,15 @@ test2
 #attacks on the mimic not significantly different from attacks on the control 
 #do i need to show that attacks are not significantly different across 4 days in the field in order for this to show learning? (or the absence of learning...)
 ```
+attack proportions, transect 2
+
+```{r}
+table(tp2$ATTACKS, tp2$SPECIES)
+6/500 #1.2% attack rate on junonia 
+
+10/500 #2.0% attack rate on limenitis  
+```
+
 
 ##subset testing phase transect 3 (only yes attacks)
 
@@ -157,6 +287,17 @@ test3 <- chisq.test(table(tp3$ATTACKS, tp3$SPECIES))
 test3
 #attacks on the mimic are not significantly different from attacks on the control 
 ```
+
+attack proportions, transect 3, testing phase 
+
+```{r}
+table(tp3$ATTACKS, tp3$SPECIES)
+7/500 #1.4% attack rate on junonia 
+
+8/500 #1.6% attack rate on limenitis 
+```
+
+
 ##subset testing phase transect 4 (only yes attacks)
 
 ```{r}
@@ -171,8 +312,17 @@ test4
 #do I need to do a post hoc test to show that attacks on battus and limenitis are significantly lower than attacks on junonia?
 ```
 
-##calculating **survivorship** scores by finding the total number of attacks on each species and dividing that by the total facsimilies of each species in the field 
+attack proportions, transect 4, testing phase 
 
+```{r}
+table(tp4$ATTACKS, tp4$SPECIES)
+
+7/500 #battus 1.4% attack rate 
+
+16/500 #junonia 3.2% attack rate
+
+4/500 #limenitis 0.8% attack rate 
+```
 
 #plots to get regression lines? 
 
@@ -212,6 +362,30 @@ lm(x ~ y, data = battus)
 test <- chisq.test(table(yes.data.LP$SPECIES, yes.data.LP$DAY))
 test
 ```
+
+Comparing junonia across learning and testing phases 
+
+```{r}
+testingdata <- subset(yes.data, PHASE == "testing", drop = FALSE)
+testingdata
+
+td <- subset(testingdata, TRANSECT < 4, drop = FALSE)
+td
+
+length(learningdata$ATTACKS)
+length(td$ATTACKS)
+
+gaps <- subset(yes.data, TRANSECT < 4, drop = FALSE)
+
+table(gaps$ATTACKS, gaps$PHASE)
+chisq.test(table(gaps$ATTACKS, gaps$PHASE)) #not significant for totals across all species
+
+gaps.jun <- subset(gaps, SPECIES == "junonia", drop = FALSE)
+table(gaps.jun$ATTACKS, gaps.jun$PHASE)
+chisq.test(table(gaps.jun$ATTACKS, gaps.jun$PHASE))
+## difference in attacks on junonia across learning and testing phases are significant, but could this just show learning avoidance of the control? because there were more attacks on limenitis in the testing experiments than on battus in the learning phase and overall attack rates across all species are not significantly different 
+```
+
 run chi squared analysis to determine if there are significantly different attack rates on junonia in learning and testing phase data 
 
 
@@ -230,5 +404,45 @@ NOTES:
 This I need to do: 
 1. demonstrate significant decline in battus learning over 4 days
 2. demonstrate no significant learning of mimic phenotype in testing phase 
+3. compare attack rates for controls. compare total attacks on junonia in all learning phases compared to attacks on all testing phases 
+4. novalty and conspicousness 
+5. plugged JND into pavo to compare spectral data 
+6. what are the implications? 
+7. adaptive forgetting - phonological mismatch, we are outside of the range where they naturally encounter the chemically defended species
+8. look up battus flight times in georgia 
+9. the cone of protection- lots of protection for the mimic in the heart of the range of the model 
+
+```{r}
+library(ggplot2)
+
+d=data.frame(x=c(1,2,3,4), y=c(16,9,4,8))
+g <- ggplot() + geom_step(data=d, aes(x=x, y=y)) + geom_step(data=d, aes(x=x, y=y), direction="vh", linetype=3) + geom_point(data=d,aes(x=x, y=y), color="red") 
+g
+```
+
+```{r}
+setwd("/Users/AbbyRobinson/Desktop/Summer 2021 Data")
+data2 <- read.csv("learning_count_data.csv")
+data2
+
+yes <- subset(data2, STATUS == "yes", drop = FALSE)
+yes
+
+table(yes$SPECIES, yes$DAY)
+
+JL<- subset(learningdata, SPECIES == "junonia", drop = FALSE)
+JL
+
+library(survival)
+?Surv()
+surv <- survfit(Surv(DAY, ATTACKS) ~1, data=JL)
+plot(surv)
+
+BL <- subset(learningdata, SPECIES == "battus", drop = FALSE)
+tabe
+surv2 <- survfit(Surv(DAY, ATTACKS) ~1, data=BL)
+plot(surv2)
+```
+
 
 
