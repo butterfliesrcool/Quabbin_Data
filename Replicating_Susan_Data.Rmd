@@ -1,0 +1,84 @@
+---
+title: "binomial"
+author: "Abby_Robinson"
+date: "11/19/2021"
+output: html_document
+---
+##chi squared approxiamation may be incorrect error: delete the zeros!!
+
+```{r}
+library(curl)
+```
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/butterfliesrcool/BI588_Replication_Assignment/main/Adelpha2016_binomial.csv")
+data  <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+data
+```
+```{r}
+attacks <- subset(data, attacks >= "1", drop = FALSE)
+attacks
+table(attacks$attacks, attacks$species)
+```
+```{r}
+day <- data$day
+attacks <- data$attacks
+species <- data$species
+df <- as.data.frame(cbind(day, species, attacks))
+df
+
+model <- survfit(Surv(day, attacks) ~ 1, data=data)
+model$n.risk
+new.n.risk <- model$n.risk <- c(500, 500, 500, 500)
+model$n.risk <- model$new.n.risk
+```
+
+##n.risk numbers should be 500 every day because we replaced attacked models every day in our experiment, so there were 500 facsimiles that could have been attacked each day. Not sure how to fix this. 
+```{r}
+library(survival)
+model <- survfit(Surv(day, attacks) ~ species, data=data)
+model
+summary(model)
+```
+
+```{r}
+plot(survfit(model), ylim = c(0.70, 1.0), xlab="days",
+ylab="attacks")
+
+survdiff(Surv(day, attacks) ~ species, data = data)
+summary(model)
+
+?survfit.coxph
+```
+
+checking sample sizes in the data 
+```{r}
+four <- subset(data, day == "4", drop = FALSE)
+eva <- subset(four, species == "evarete", drop = FALSE)
+eva
+length(eva$attacks)
+
+one <- subset(data, day == "1", drop = FALSE)
+eva.one <- subset(four, species == "evarete", drop = FALSE)
+eva.one
+length(eva$attacks)
+```
+
+```{r}
+eva <- subset(data, species == "evarete", drop = FALSE)
+model <- survfit(Surv(day, attacks) ~ species, data=eva)
+model
+summary(model)
+?survfit()
+survfit
+```
+```{r}
+library(survival)
+args(coxph)
+```
+
+```{r}
+model <- coxph(Surv(day, attacks) ~ species,
+data=data)
+summary(model)
+```
