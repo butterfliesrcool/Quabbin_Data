@@ -77,3 +77,70 @@ table(lj$attacks, lj$day)
 chisq.test(table(lj$attacks, lj$day))
 ```
 
+```{r}
+glm <- glm(data = learning, attacks ~ species + day, family = "poisson")
+summary(glm)
+confint(glm)
+```
+
+```{r}
+b <- subset(learning, species == "battus", drop = FALSE)
+glm <- glm(data = b, attacks ~ day, family = "poisson")
+summary(glm)
+confint(glm)
+```
+
+```{r}
+j <- subset(learning, species == "junonia", drop = FALSE)
+glm <- glm(data = j, attacks ~ day, family = "poisson")
+summary(glm)
+confint(glm)
+```
+
+```{r}
+library(survival)
+library(survminer)
+library(ggplot2)
+```
+```{r}
+model <- survfit(Surv(day, day+1, attacks) ~ species, data=learning)
+model
+summary(model)
+```
+
+```{r}
+p <- ggsurvplot(fit = model,
+           xaxt = "n",
+           xlab="Time (days)", 
+           ylab="Survivorship",
+           ylim = c(0.97, 1.0), 
+           xlim = c(1, 5),  
+           data = learning, 
+           axes = FALSE, 
+           linetype = 1,
+           legend.title = "Species")
+
+p$plot <- p$plot + theme_minimal()
+p$plot <- p$plot + theme_classic()
+
+##rename the x axis values 
+p$plot <- p$plot + scale_x_continuous(breaks = c(1,2,3,4,5), labels = c(0,1,2,3,4))
+
+p$plot <- p$plot + scale_color_manual(values = c("darkblue", "sienna4"))
+
+p$plot
+```
+
+```{r}
+a <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-one.csv")
+te1  <- read.csv(a, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(t1) #we can use the head function to view the first 10 rows in the dataset 
+length(t1$attacks)
+sum(t1$attacks)
+```
+
+```{r}
+tt1 <- rep(1, each=4000)
+t1$transect <- tt1
+head(t1)
+```
