@@ -72,13 +72,14 @@ chisq.test(table(lb$attacks, lb$day))
 ```
 
 ```{r}
-lj <- subset(no.zero.learning, species == "junonia", drop = FALSE)
+lj <- subset(no.zero.learning, species == "junonia.learning", drop = FALSE)
 table(lj$attacks, lj$day)
 chisq.test(table(lj$attacks, lj$day))
 ```
 
 ```{r}
-glm <- glm(data = learning, attacks ~ species + day, family = "poisson")
+pairs(learning)
+glm <- glm(data = learning, attacks ~ species + day, family = "binomial")
 summary(glm)
 confint(glm)
 ```
@@ -91,21 +92,41 @@ confint(glm)
 ```
 
 ```{r}
-j <- subset(learning, species == "junonia", drop = FALSE)
+j <- subset(learning, species == "junonia.learning", drop = FALSE)
 glm <- glm(data = j, attacks ~ day, family = "poisson")
 summary(glm)
 confint(glm)
 ```
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+```{r}
+##pld = post learning days 
+pld <- subset(learning, day %in% c(2,3,4), drop = FALSE)
+pld
+table(pld$attacks, pld$species)
+
+glm <- glm(data = pld, attacks ~ species, family = "poisson")
+summary(glm)
+```
+##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
+
 
 ```{r}
 library(survival)
 library(survminer)
 library(ggplot2)
 ```
+
 ```{r}
 model <- survfit(Surv(day, day+1, attacks) ~ species, data=learning)
 model
 summary(model)
+cox.zph(model)
+
+model2 <- survfit(Surv(day, day+1, attacks) ~ species, data=no.zero.learning)
+coxph(Surv(day, day+1, attacks) ~ species, data=no.zero.learning)
+survdiff(Surv(day, attacks) ~ day, data=no.zero.learning)
 ```
 
 ```{r}
@@ -131,16 +152,247 @@ p$plot <- p$plot + scale_color_manual(values = c("darkblue", "sienna4"))
 p$plot
 ```
 
+
+
+##Testing Phase Data input and analysis 
 ```{r}
 a <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-one.csv")
 te1  <- read.csv(a, header = TRUE, sep = ",", stringsAsFactors = FALSE)
-head(t1) #we can use the head function to view the first 10 rows in the dataset 
-length(t1$attacks)
-sum(t1$attacks)
+head(te1) #we can use the head function to view the first 10 rows in the dataset 
+length(te1$attacks)
+sum(te1$attacks)
 ```
 
 ```{r}
 tt1 <- rep(1, each=4000)
-t1$transect <- tt1
-head(t1)
+te1$transect <- tt1
+head(te1)
 ```
+
+```{r}
+h <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-two.csv")
+te2  <- read.csv(h, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(te2) #we can use the head function to view the first 10 rows in the dataset 
+length(te2$attacks)
+sum(te2$attacks)
+```
+
+```{r}
+tt2 <- rep(2, each=4000)
+te2$transect <- tt2
+head(te2)
+```
+
+```{r}
+w <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-three.csv")
+te3  <- read.csv(w, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(te3) #we can use the head function to view the first 10 rows in the dataset 
+length(te3$attacks)
+sum(te3$attacks)
+```
+
+```{r}
+tt3 <- rep(3, each=4000)
+te3$transect <- tt3
+head(te3)
+```
+```{r}
+testing <- rbind(te1, te2, te3)
+length(testing$attacks)
+sum(testing$attacks)
+```
+
+
+```{r}
+no.zero.testing <- subset(testing, attacks == "1", drop = FALSE)
+table(no.zero.testing$attacks, no.zero.testing$species)
+chisq.test(table(no.zero.testing$attacks, no.zero.testing$species))
+```
+
+```{r}
+tl <- subset(no.zero.testing, species == "limenitis", drop = FALSE)
+table(tl$attacks, tl$day)
+chisq.test(table(tl$attacks, tl$day))
+```
+
+```{r}
+tj <- subset(no.zero.testing, species == "junonia", drop = FALSE)
+table(tj$attacks, tj$day)
+chisq.test(table(tj$attacks, tj$day))
+```
+
+```{r}
+glm2 <- glm(data = testing, attacks ~ species + day, family = "poisson")
+summary(glm2)
+confint(glm2)
+```
+
+```{r}
+l <- subset(testing, species == "limenitis", drop = FALSE)
+glm3 <- glm(data = l, attacks ~ day, family = "poisson")
+summary(glm3)
+confint(glm3)
+```
+
+```{r}
+tj <- subset(testing, species == "junonia", drop = FALSE)
+glm4 <- glm(data = tj, attacks ~ day, family = "poisson")
+summary(glm4)
+confint(glm4)
+```
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+```{r}
+##pld = post learning days 
+pld.testing <- subset(testing, day %in% c(2,3,4), drop = FALSE)
+pld.testing
+table(pld.testing$attacks, pld.testing$species)
+
+glm <- glm(data = pld.testing, attacks ~ species, family = "poisson")
+summary(glm)
+##attacks excluding day one (where no learning has occurred) are not significantly different between junonia and limenitis 
+```
+
+```{r}
+model2 <- survfit(Surv(day, day+1, attacks) ~ species, data=testing)
+model2
+summary(model2)
+```
+
+```{r}
+p <- ggsurvplot(fit = model2,
+           xaxt = "n",
+           xlab="Time (days)", 
+           ylab="Survivorship",
+           ylim = c(0.98, 1.0), 
+           xlim = c(1, 5),  
+           data = testing, 
+           axes = FALSE, 
+           linetype = 1,
+           legend.title = "Species")
+
+p$plot <- p$plot + theme_minimal()
+p$plot <- p$plot + theme_classic()
+
+##rename the x axis values 
+p$plot <- p$plot + scale_x_continuous(breaks = c(1,2,3,4,5), labels = c(0,1,2,3,4))
+
+p$plot <- p$plot + scale_color_manual(values = c("sienna4", "deepskyblue"))
+
+p$plot
+```
+
+
+creating stations could reduce the sample size and help eliminate noise in the data - this didn't seem to change anything
+
+```{r}
+table(learning$attacks, learning$fac.no) 
+stations <- subset(learning, fac.no %in% c(1, 2, 3), drop = FALSE)
+length(stations$attacks)
+```
+
+```{r}
+bat.stations <- subset(stations, species == "battus", drop = FALSE)
+```
+
+```{r}
+coxph(Surv(day, attacks) ~ 1, data=bat.stations)
+survdiff(Surv(day, attacks) ~ day, data=bat.stations)
+```
+
+```{r}
+jun.stations <- subset(stations, species == "junonia", drop = FALSE)
+coxph(Surv(day, attacks) ~ 1, data=jun.stations)
+survdiff(Surv(day, attacks) ~ day, data=jun.stations)
+```
+
+```{r}
+coxph(Surv(day, day+1, attacks) ~ species, data=stations)
+```
+
+```{r}
+survdiff(Surv(day, attacks) ~ species, data=stations)
+pairwise_survdiff(Surv(day, attacks) ~ species, p.adjust.method = "BH",
+     data = stations)
+```
+
+
+##Simultaneous data 
+
+```{r}
+u <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/simultaneous-transect-four.csv")
+sim  <- read.csv(u, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+```{r}
+no.zero.sim <- subset(sim, attacks == "1", drop = FALSE)
+table(no.zero.sim$attacks, no.zero.sim$species)
+glm <- glm(data = sim, attacks ~ species, family = "poisson")
+summary(glm)
+```
+
+###GLMs for simultaneous experiment not significant - probably because samle size is too low 
+NOTE FOR NEXT TIME: if we are going to treat the simultaneous experiment as a completely separate experiment, we should do one paired with each transect so that the sample sizes are comparable 
+
+```{r}
+##pld = post learning days 
+pld.sim <- subset(sim, day %in% c(2,3,4), drop = FALSE)
+table(pld.sim$attacks, pld.sim$species)
+
+glm <- glm(data = pld.sim, attacks ~ species, family = "poisson")
+summary(glm)
+```
+
+Attempts at coxme analysis 
+
+```{r}
+library(survival)
+library(coxme)
+###how do i test if the data meets the assumptions of the model??? 
+### run the code "cox.zph()" to test whether the proportional hazards assumption is met 
+all.data <- rbind(learning, testing)
+length(all.data$attacks)
+head(all.data)
+```
+
+```{r}
+stem(table(eortc$center))
+```
+
+```{r}
+eortc
+```
+
+
+```{r}
+efit1 <- coxph(Surv(y, uncens) ~ trt, eortc)
+efit2 <- coxme(Surv(y, uncens) ~ trt + (1|center), eortc)
+```
+
+```{r}
+print(efit2)
+```
+
+```{r}
+m1 <- coxph(Surv(day, day+1, attacks) ~ species + cluster(site + fac.no), 
+    data = all.data)
+summary(m1)
+cox.zph(m1)
+```
+
+```{r}
+m2 <- coxme(Surv(day, attacks) ~ species + day + (1|site), data = all.data)
+summary(m2)
+```
+
+```{r}
+m3 <- coxme(Surv(day, attacks) ~ species + day + (1|fac.no), data = all.data)
+summary(m3)
+```
+
+```{r}
+m4 <- coxme(Surv(day, attacks) ~ species + day + (1|site/fac.no), data = all.data)
+summary(m4)
+```
+
+
