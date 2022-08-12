@@ -1,0 +1,89 @@
+---
+title: "Figures"
+author: "Abby Robinson"
+date: "2/25/2022"
+output: html_document
+---
+
+LEARNING PHASE: ATTACKS ON BATTUS AND JUNONIA BY DAY 
+```{r}
+df <- data.frame(
+  day = c(1, 2, 3, 4),
+  b = c(20, 3, 3, 2),
+  j = c(16, 10, 4, 8)
+)
+learning <- t(cbind(df$b, df$j))
+barplot(learning, beside=T, names.arg = df$day, col=c("black","grey"))
+```
+```{r}
+sim <- c(7, 4, 15)
+species <- c("Battus", "Limenitis", "Junonia (control)")
+barplot(sim ~ species)
+```
+
+```{r}
+learn <- c(28, 38)
+species <- c("Battus", "Junonia (control)")
+barplot(learn ~ species, col=c("black","grey"))
+```
+
+```{r}
+test <- c(28, 20)
+species <- c("Limenitis", "Junonia (control)")
+data <- data.frame(species, test, learn)
+data$species <- factor(data$species, levels=c("Limenitis", "Junonia (control)"))
+
+barplot(data$test  ~ data$species, col=c("black","grey"))
+```
+
+```{r}
+##All attacks for days 1-4
+df <- data.frame(
+test.species = c(28, 28),
+junonia = c(38, 20),
+phase = c("learning", "testing")
+)
+
+attacks <- t(cbind(df$test.species, df$junonia))
+barplot(attacks, beside=T, names.arg = df$phase, col=c("black","grey"), cex.axis=1.5)
+
+```
+```{r}
+##Post learning day attacks 
+df <- data.frame(
+test.species = c(8, 16),
+junonia = c(22, 10),
+phase = c("learning", "testing")
+)
+
+attacks.pld <- t(cbind(df$test.species, df$junonia))
+barplot(attacks.pld, beside=T, names.arg = df$phase, col=c("black","grey"), cex.axis=1.5)
+
+```
+
+```{r}
+df <- data.frame(
+  transect = c(1, 2, 3, 4),
+  l = c(11, 10, 7, 4),
+  j = c(7, 6, 7, 15)
+)
+testing <- t(cbind(df$l, df$j))
+barplot(testing, beside=T, names.arg = df$transect, col=c("black","grey"))
+```
+```{r}
+result <- c(T1, T2, T3, )
+result <- signif(result, digits = 3)
+result
+```
+
+Testing Phase Analysis 
+```{r}
+df <- data.frame(
+  transect = c(1, 2, 3, 4),
+  l = c(61.1, 62.5, 50, 21.1),
+  j = c(38.9, 37.5, 50, 78.9)
+)
+testing <- t(cbind(df$l, df$j))
+barplot(testing, beside=T, names.arg = df$transect, col=c("black","grey"),ylim= c(0,100), cex.axis=2)
+```
+

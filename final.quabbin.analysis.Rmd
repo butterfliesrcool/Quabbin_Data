@@ -1,0 +1,469 @@
+---
+title: "final.quabbin.analysis"
+author: "Abby Robinson"
+date: "1/11/2022"
+output: html_document
+---
+
+```{r}
+library(curl)
+```
+
+
+```{r}
+c <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/learning-phase-transect-one.csv")
+l1  <- read.csv(c, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(l1) #we can use the head function to view the first 10 rows in the dataset 
+length(l1$attacks)
+sum(l1$attacks)
+```
+
+```{r}
+t1 <- rep(1, each=4000)
+l1$transect <- t1
+head(l1)
+```
+
+```{r}
+r <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/learning-phase-transect-two.csv")
+l2  <- read.csv(r, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(l2) #we can use the head function to view the first 10 rows in the dataset 
+length(l2$attacks)
+sum(l2$attacks)
+```
+
+```{r}
+t2 <- rep(2, each=4000)
+l2$transect <- t2
+head(l2)
+```
+
+```{r}
+p <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/learning-phase-transect-three.csv")
+l3  <- read.csv(p, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(l3) #we can use the head function to view the first 10 rows in the dataset 
+length(l3$attacks)
+sum(l3$attacks)
+```
+
+```{r}
+t3 <- rep(3, each=4000)
+l3$transect <- t3
+head(l3)
+```
+
+```{r}
+learning <- rbind(l1, l2, l3)
+length(learning$attacks)
+sum(learning$attacks)
+```
+
+
+
+```{r}
+glm <- glm(data = learning, attacks ~ species, family = "binomial")
+summary(glm)
+confint(glm)
+```
+
+```{r}
+b <- subset(learning, species == "battus", drop = FALSE)
+glm <- glm(data = b, attacks ~ day, family = "binomial")
+summary(glm)
+confint(glm)
+```
+
+```{r}
+j <- subset(learning, species == "junonia.learning", drop = FALSE)
+glm <- glm(data = j, attacks ~ day, family = "binomial")
+summary(glm)
+confint(glm)
+```
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+```{r}
+##pld = post learning days 
+pld <- subset(learning, day %in% c(2,3,4), drop = FALSE)
+pld
+table(pld$attacks, pld$species)
+
+glm <- glm(data = pld, attacks ~ species, family = "binomial")
+summary(glm)
+```
+##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
+
+##Testing Phase Data input and analysis 
+```{r}
+a <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-one.csv")
+te1  <- read.csv(a, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(te1) #we can use the head function to view the first 10 rows in the dataset 
+length(te1$attacks)
+sum(te1$attacks)
+```
+
+```{r}
+tt1 <- rep(1, each=4000)
+te1$transect <- tt1
+head(te1)
+```
+
+```{r}
+h <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-two.csv")
+te2  <- read.csv(h, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(te2) #we can use the head function to view the first 10 rows in the dataset 
+length(te2$attacks)
+sum(te2$attacks)
+```
+
+```{r}
+tt2 <- rep(2, each=4000)
+te2$transect <- tt2
+head(te2)
+```
+
+```{r}
+w <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/testing-phase-transect-three.csv")
+te3  <- read.csv(w, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(te3) #we can use the head function to view the first 10 rows in the dataset 
+length(te3$attacks)
+sum(te3$attacks)
+```
+
+```{r}
+tt3 <- rep(3, each=4000)
+te3$transect <- tt3
+head(te3)
+```
+
+```{r}
+testing <- rbind(te1, te2, te3)
+length(testing$attacks)
+sum(testing$attacks)
+```
+
+
+
+
+
+```{r}
+glm2 <- glm(data = testing, attacks ~ species, family = "binomial")
+summary(glm2)
+confint(glm2)
+```
+
+```{r}
+l <- subset(testing, species == "limenitis", drop = FALSE)
+glm3 <- glm(data = l, attacks ~ day, family = "binomial")
+summary(glm3)
+confint(glm3)
+```
+
+```{r}
+tj <- subset(testing, species == "junonia", drop = FALSE)
+glm4 <- glm(data = tj, attacks ~ day, family = "binomial")
+summary(glm4)
+confint(glm4)
+```
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+Do pairwise glms comparing each day to get specific significance measurements and make a bargraph with the *** for attacks on each day (like susan did?)
+
+also make a bar graph showing total attacks on each species for days 2-4
+can the maximum likelihood allow me to statistically compare this number between limenitis and battus directly 
+
+```{r}
+##pld = post learning days 
+pld.testing <- subset(testing, day %in% c(2,3,4), drop = FALSE)
+pld.testing
+table(pld.testing$attacks, pld.testing$species)
+
+glm <- glm(data = pld.testing, attacks ~ species, family = "binomial")
+summary(glm)
+##attacks excluding day one (where no learning has occurred) are not significantly different between junonia and limenitis 
+```
+
+
+```{r}
+p <- ggsurvplot(fit = model2,
+           xaxt = "n",
+           xlab="Time (days)", 
+           ylab="Survivorship",
+           ylim = c(0.98, 1.0), 
+           xlim = c(1, 5),  
+           data = testing, 
+           axes = FALSE, 
+           linetype = 1,
+           legend.title = "Species")
+
+p$plot <- p$plot + theme_minimal()
+p$plot <- p$plot + theme_classic()
+
+##rename the x axis values 
+p$plot <- p$plot + scale_x_continuous(breaks = c(1,2,3,4,5), labels = c(0,1,2,3,4))
+
+p$plot <- p$plot + scale_color_manual(values = c("sienna4", "deepskyblue"))
+
+p$plot
+```
+
+
+creating stations could reduce the sample size and help eliminate noise in the data - this didn't seem to change anything
+
+```{r}
+table(learning$attacks, learning$fac.no) 
+stations <- subset(learning, fac.no %in% c(1, 2, 3), drop = FALSE)
+length(stations$attacks)
+```
+
+```{r}
+bat.stations <- subset(stations, species == "battus", drop = FALSE)
+```
+
+```{r}
+coxph(Surv(day, attacks) ~ 1, data=bat.stations)
+survdiff(Surv(day, attacks) ~ day, data=bat.stations)
+```
+
+```{r}
+jun.stations <- subset(stations, species == "junonia", drop = FALSE)
+coxph(Surv(day, attacks) ~ 1, data=jun.stations)
+survdiff(Surv(day, attacks) ~ day, data=jun.stations)
+```
+
+```{r}
+coxph(Surv(day, day+1, attacks) ~ species, data=stations)
+```
+
+```{r}
+survdiff(Surv(day, attacks) ~ species, data=stations)
+pairwise_survdiff(Surv(day, attacks) ~ species, p.adjust.method = "BH",
+     data = stations)
+```
+
+
+##Simultaneous data 
+
+```{r}
+u <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/simultaneous-transect-four.csv")
+sim  <- read.csv(u, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+
+
+###GLMs for simultaneous experiment not significant - probably because samle size is too low 
+NOTE FOR NEXT TIME: if we are going to treat the simultaneous experiment as a completely separate experiment, we should do one paired with each transect so that the sample sizes are comparable 
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+
+##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
+```{r}
+##pld = post learning days 
+pld.testing <- subset(testing, day %in% c(2,3,4), drop = FALSE)
+pld.testing
+table(pld.testing$attacks, pld.testing$species)
+
+glm <- glm(data = pld.testing, attacks ~ species, family = "poisson")
+summary(glm)
+##attacks excluding day one (where no learning has occurred) are not significantly different between junonia and limenitis 
+```
+
+```{r}
+attacks <- subset(sim, attacks == "1", drop = FALSE)
+ba <- subset(sim, species == "battus", drop = FALSE)
+li <- subset(sim, species == "limenitis", drop = FALSE)
+ju <- subset(sim, species == "junonia", drop = FALSE)
+
+bl <- subset(sim, species %in% c("battus", "limenitis"), drop = FALSE)
+jl <- subset(sim, species %in% c("junonia", "limenitis"), drop = FALSE)
+bj <- subset(sim, species %in% c("battus", "junonia"), drop = FALSE)
+```
+
+```{r}
+
+glm4 <- glm(data = sim, attacks ~ species, family = "binomial")
+summary(glm4)
+
+glm.bl <- glm(data = bl, attacks ~ species, family = "binomial")
+summary(glm.bl)
+
+glm.jl <- glm(data = jl, attacks ~ species, family = "binomial")
+summary(glm.jl)
+
+glm.bj <- glm(data = bj, attacks ~ species, family = "binomial")
+summary(glm.bj)
+```
+
+```{r}
+table(attacks$species, attacks$attacks)
+sim <- chisq.test(table(attacks$species, attacks$attacks))
+
+x <- c("Battus", "Limenitis", "Junonia")
+y <- c(7,4,15)
+plot(x,y)
+```
+
+
+Attempts at coxme analysis 
+
+```{r}
+library(survival)
+library(coxme)
+###how do i test if the data meets the assumptions of the model??? 
+### run the code "cox.zph()" to test whether the proportional hazards assumption is met 
+all.data <- rbind(learning, testing)
+length(all.data$attacks)
+head(all.data)
+```
+
+```{r}
+stem(table(eortc$center))
+```
+
+```{r}
+eortc
+```
+
+
+```{r}
+efit1 <- coxph(Surv(y, uncens) ~ trt, eortc)
+efit2 <- coxme(Surv(y, uncens) ~ trt + (1|center), eortc)
+```
+
+```{r}
+print(efit2)
+```
+
+```{r}
+m1 <- coxph(Surv(day, day+1, attacks) ~ species + cluster(site + fac.no), 
+    data = all.data)
+summary(m1)
+cox.zph(m1)
+```
+
+```{r}
+m2 <- coxme(Surv(day, attacks) ~ species + day + (1|site), data = all.data)
+summary(m2)
+```
+
+```{r}
+m3 <- coxme(Surv(day, attacks) ~ species + day + (1|fac.no), data = all.data)
+summary(m3)
+```
+
+```{r}
+m4 <- coxme(Surv(day, attacks) ~ species + day + (1|site/fac.no), data = all.data)
+summary(m4)
+```
+
+###GLMs for simultaneous experiment not significant - probably because samle size is too low 
+NOTE FOR NEXT TIME: if we are going to treat the simultaneous experiment as a completely separate experiment, we should do one paired with each transect so that the sample sizes are comparable 
+
+##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+
+```{r}
+##learing phase day-to-day pairwise comparisons 
+b1.2 <- subset(learning, day %in% c(1,2), drop = FALSE)
+b1.3 <- subset(learning, day %in% c(1,3), drop = FALSE)
+b1.4 <- subset(learning, day %in% c(1,4), drop = FALSE)
+b2.3 <- subset(learning, day %in% c(2,3), drop = FALSE)
+b2.4 <- subset(learning, day %in% c(2,4), drop = FALSE)
+b3.4 <- subset(learning, day %in% c(3,4), drop = FALSE)
+```
+
+```{r}
+glm.b1.2 <- glm(data = b1.2, attacks ~ species, family = "binomial")
+summary(glm.b1.2)
+##no significant difference in attack rates between species (p=0.66686)
+##significant differnce in attack rates between day 1&2 (p=0.00157 ** )
+```
+
+```{r}
+glm.b1.3 <- glm(data = b1.3, attacks ~ species, family = "binomial")
+summary(glm.b1.3)
+##no significant difference in attack rates between species (p=0.646)
+##significant differnce in attack rates between day 1&2 (p=6.86e-05 ***)
+```
+
+```{r}
+glm.b1.4 <- glm(data = b1.4, attacks ~ species + day, family = "binomial")
+summary(glm.b1.4)
+##no significant difference in attack rates between species (p=0.76700 )
+##significant differnce in attack rates between day 1&2 (p=0.00032 ***)
+```
+
+```{r}
+glm.b2.3 <- glm(data = b2.3, attacks ~ species, family = "binomial")
+summary(glm.b2.3 )
+##no significant difference in attack rates between species (p=0.0819)
+##no significant differnce in attack rates between day 1&2 (p=0.1858)
+```
+
+##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
+```{r}
+##pld = post learning days 
+pld.testing <- subset(testing, day %in% c(2,3,4), drop = FALSE)
+pld.testing
+table(pld.testing$attacks, pld.testing$species)
+
+glm <- glm(data = pld.testing, attacks ~ species, family = "poisson")
+summary(glm)
+##attacks excluding day one (where no learning has occurred) are not significantly different between junonia and limenitis 
+```
+
+x: a vector of counts of successes
+n: a vector of count trials
+alternative: a character string specifying the alternative hypothesis
+correct: a logical indicating whether Yates’ continuity correction should be applied where possible
+
+```{r}
+all.attacks <- prop.test(x = c(28, 28), n = c(66, 48))
+all.attacks
+```
+
+```{r}
+post.learning <- prop.test(x = c(8, 16), n = c(30, 26))
+post.learning
+```
+
+```{r}
+T1 <- prop.test(x = c(11, 7), n = c(18, 18))
+# Printing the results
+T1
+```
+
+```{r}
+T2 <- prop.test(x = c(10, 6), n = c(16, 16))
+# Printing the results
+T2
+```
+
+```{r}
+T3 <- prop.test(x = c(7, 7), n = c(14, 14))
+# Printing the results
+T3
+```
+
+```{r}
+sim <- prop.test(x = c(4, 15), n = c(19, 19))
+# Printing the results
+sim
+```
+
+
+
+```{r}
+result <- c(T1$p.value, T2$p.value, T3$p.value, sim$p.value)
+result <- signif(result, digits = 3)
+result
+```
+
+```{r}
+df_p_val <- data.frame(
+  group1 = "1",
+  group2 = "2",
+  label = result,
+  y.position = 6
+)
+```
