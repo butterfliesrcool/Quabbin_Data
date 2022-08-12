@@ -52,7 +52,7 @@ head(l3)
 ```
 
 ```{r}
-f <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/day.five.csv")
+f <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/day.five.learning.csv")
 five <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
 head(five) 
 sum(five$attacks)
