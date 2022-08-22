@@ -59,7 +59,6 @@ sum(learning$attacks)
 ```
 
 
-
 ```{r}
 glm <- glm(data = learning, attacks ~ species, family = "binomial")
 summary(glm)
@@ -80,7 +79,7 @@ summary(glm)
 confint(glm)
 ```
 
-##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+##run GLMs comparing species only for days 2-4 (we would expect to see lower attack rates only on days 2-4 because predators are naive on day 1)
 
 ```{r}
 ##pld = post learning days 
@@ -142,10 +141,6 @@ length(testing$attacks)
 sum(testing$attacks)
 ```
 
-
-
-
-
 ```{r}
 glm2 <- glm(data = testing, attacks ~ species, family = "binomial")
 summary(glm2)
@@ -166,12 +161,8 @@ summary(glm4)
 confint(glm4)
 ```
 
-##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
+##run GLMs comparing species only for days 2-4 
 
-Do pairwise glms comparing each day to get specific significance measurements and make a bargraph with the *** for attacks on each day (like susan did?)
-
-also make a bar graph showing total attacks on each species for days 2-4
-can the maximum likelihood allow me to statistically compare this number between limenitis and battus directly 
 
 ```{r}
 ##pld = post learning days 
@@ -252,10 +243,8 @@ sim  <- read.csv(u, header = TRUE, sep = ",", stringsAsFactors = FALSE)
 
 
 ###GLMs for simultaneous experiment not significant - probably because samle size is too low 
-NOTE FOR NEXT TIME: if we are going to treat the simultaneous experiment as a completely separate experiment, we should do one paired with each transect so that the sample sizes are comparable 
 
-##run GLMs comparing species only for days 2-4 (this would work, theoretically, if birds learn in one day)
-
+##run GLMs comparing species only for days 2-4 
 
 ##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
 ```{r}
