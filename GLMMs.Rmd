@@ -1,0 +1,59 @@
+---
+title: "GLMMs"
+author: "Abby Robinson"
+date: "10/5/2022"
+output: html_document
+---
+Install these packages in R: {curl}, {ggplot2}, {lme4}, {AICcmodavg}, {MuMIn}
+
+```{r}
+library(curl)
+library(ggplot2)
+library(lme4)
+library(AICcmodavg)
+```
+
+Generalized linear mixed models (GLMM), if we’re dealing with various other variable types and error structure (e.g., binary, proportion, or count data).
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/binomial_quabbin_data_all.csv")
+data <- read.csv(d, header = TRUE, sep = ",")
+head(data)
+```
+
+GLMMs for time - delayed trials 
+```{r}
+temp.delay <- subset(data, trial %in% c("model", "mimic"), drop = FALSE)
+pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+
+m1 <- glmer(attacks ~ species + trial + time.delay + (1|site), data = pld, family = binomial)
+summary(m1, corr = FALSE)
+
+m2 <- glmer(attacks ~ species*trial + (1|site), data = pld, family = binomial)
+summary(m2, corr = FALSE) 
+  ##interaction between species and trial for post learning days
+  ##removed time.delay... doesn't explain patterns in the data?? 
+  ##reach out to data people at BU to help interpret these results 
+
+m3 <- glmer(attacks ~ species*trial + (1|site), data =  temp.delay, family = binomial)
+summary(m3, corr = FALSE) ## includes all experimental days 
+
+m4 <- glmer(attacks ~ species*day + time.delay + (1|site), data =  temp.delay, family = binomial)
+summary(m4, corr = FALSE) 
+```
+
+```{r}
+sim <- subset(data, trial == "simultaneously", drop = FALSE)
+head(sim)
+
+m5 <- glmer(attacks ~ species + day + (1|site), data = sim, family = binomial)
+summary(m5, corr = FALSE)
+
+m6 <- glmer(attacks ~ species + (1|site), data = sim, family = binomial)
+summary(m6, corr = FALSE)
+##not significant, likely because of low sample sizes... is there a correction I can use? 
+```
+
+Sources: 
+# https://data.library.virginia.edu/getting-started-with-binomial-generalized-linear-mixed-models/
+
