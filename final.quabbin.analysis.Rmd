@@ -79,17 +79,6 @@ summary(glm)
 confint(glm)
 ```
 
-##run GLMs comparing species only for days 2-4 (we would expect to see lower attack rates only on days 2-4 because predators are naive on day 1)
-
-```{r}
-##pld = post learning days 
-pld <- subset(learning, day %in% c(2,3,4), drop = FALSE)
-pld
-table(pld$attacks, pld$species)
-
-glm <- glm(data = pld, attacks ~ species, family = "binomial")
-summary(glm)
-```
 ##totally attacks excluding day one (where no learning has occurred) is significantly different between junonia and battus according to the GLM analysis 
 
 ##Testing Phase Data input and analysis 
@@ -163,6 +152,17 @@ confint(glm4)
 
 ##run GLMs comparing species only for days 2-4 
 
+##run GLMs comparing species only for days 2-4 (we would expect to see lower attack rates only on days 2-4 because predators are naive on day 1)
+
+```{r}
+##pld = post learning days 
+pld.learning <- subset(learning, day %in% c(2,3,4), drop = FALSE)
+pld.learning
+table(pld$attacks, pld$species)
+
+glm1 <- glm(data = pld, attacks ~ species, family = "binomial")
+summary(glm1)
+```
 
 ```{r}
 ##pld = post learning days 
@@ -170,10 +170,59 @@ pld.testing <- subset(testing, day %in% c(2,3,4), drop = FALSE)
 pld.testing
 table(pld.testing$attacks, pld.testing$species)
 
-glm <- glm(data = pld.testing, attacks ~ species, family = "binomial")
-summary(glm)
+glm2 <- glm(data = pld.testing, attacks ~ species, family = "binomial")
+summary(glm2)
 ##attacks excluding day one (where no learning has occurred) are not significantly different between junonia and limenitis 
 ```
+
+```{r}
+length(pld.learning$attacks)
+length(pld.testing$attacks)
+
+pld.phase.learn <- rep("learn", each=9000)
+pld.phase.teach <- rep("teach", each=9000)
+
+pld.learning$phase <- pld.phase.learn
+pld.testing$phase <- pld.phase.teach
+
+head(pld.learning)
+head(pld.testing)
+
+pld.learning.battus <- subset(pld.learning, species == "battus", drop = FALSE)
+length(pld.learning.battus$attacks)
+battus <- rep("mimetic", each=4500)
+pld.learning.battus$specimen <- battus
+
+pld.learning.junonia <- subset(pld.learning, species == "junonia.learning", drop = FALSE)
+length(pld.learning.junonia$attacks)
+junonia <- rep("control", each=4500)
+pld.learning.junonia$specimen <- junonia
+
+pld.learning <- rbind(pld.learning.battus, pld.learning.junonia)
+head(pld.learning)
+
+pld.testing.limenitis <- subset(pld.testing, species == "limenitis", drop = FALSE)
+length(pld.testing.limenitis$attacks)
+limenitis <- rep("mimetic", each=4500)
+pld.testing.limenitis$specimen <- limenitis
+
+pld.testing.junonia <- subset(pld.testing, species == "junonia", drop = FALSE)
+length(pld.testing.junonia$attacks)
+junonia <- rep("control", each=4500)
+pld.testing.junonia$specimen <- junonia
+
+pld.testing <- rbind(pld.testing.limenitis, pld.testing.junonia)
+head(pld.testing)
+
+pld <- rbind(pld.learning, pld.testing)
+
+
+glm3 <- glm(data = pld, attacks ~ phase:specimen, family = "binomial")
+summary(glm3)
+###random effects? 
+###why isn't limenitis showing up 
+```
+
 
 
 ```{r}

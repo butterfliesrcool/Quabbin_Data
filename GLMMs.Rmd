@@ -21,39 +21,323 @@ data <- read.csv(d, header = TRUE, sep = ",")
 head(data)
 ```
 
-GLMMs for time - delayed trials 
+GLMM for all data - but we don't want to compare all the data... do we? 
+
+Too much information here... 
+```{r}
+m <- glmer(attacks ~ species + trial + time.delay + day + (1|site), data = data, family = binomial)
+summary(m, corr = FALSE)
+###"day" is the only strong predictor of patterns in the data
+###ALSO no significant difference in attack rates between the time delayed trials: four, two, one
+#######How can I show this more explicitly? do I need to? 
+```
+
+```{r}
+m <- glmer(attacks ~ trial*species*day + (1|site), data = data, family = binomial)
+```
+
+
+We start by just comparing the three trials with temporal delays in exposure to models and mimics. We can't directly compare these trials to the simultaneous trial because we do not have comparable sample sizes 
 ```{r}
 temp.delay <- subset(data, trial %in% c("model", "mimic"), drop = FALSE)
-pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+class(temp.delay$day) #integer... boo...
+temp.delay$day <- as.factor(temp.delay$day)
+class(temp.delay$day)
 
-m1 <- glmer(attacks ~ species + trial + time.delay + (1|site), data = pld, family = binomial)
+m <- glmer(attacks ~ trial*species + (1|site), data =  temp.delay, family = binomial)
+# Post-hoc analysis
+emmeans(m, pairwise ~ trial * species) ###only look at the comparisons that are biologically meaningful??
+```
+
+Separate model and mimic trials 
+```{r}
+models <- subset(temp.delay, trial == "model", drop = FALSE) 
+mimics <- subset(temp.delay, trial == "mimic", drop = FALSE)
+```
+
+[1] Did birds learn to avoid Battus over 4-day model trials? 
+```{r}
+library(lsmeans)
+library(emmeans)
+class(models$day)
+m9 <- glmer(attacks ~ species*day + (1|site), data = models, family = binomial)
+###how can I get the speciesbattus:day interaction in this result? does this model show that attacks on battus decreased faster over the four days?
+
+emmeans(m9, pairwise ~ species * day) 
+```
+```{r}
+m12 <- glmer(attacks ~ species + day + (1|site), data = mimics, family = binomial)
+emmeans(m12, pairwise ~ species * day) ###this isn't working and I don't know why.... 
+```
+
+```{r}
+battus <- subset(models, species == "battus", drop = FALSE) 
+junonia <- subset(models, species == "junonia", drop = FALSE) 
+```
+
+```{r}
+bat <- glmer(attacks ~ day + (1|site), data = battus, family = binomial)
+summary(bat, corr = FALSE)
+```
+
+```{r}
+jun <- glmer(attacks ~ day + (1|site), data = junonia, family = binomial)
+summary(jun, corr = FALSE)
+##model does not work 
+##Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :  Model failed to converge with max|grad| = 0.0288983 (tol = 0.002, component 1)
+```
+
+
+```{r}
+m12 <- glmer(attacks ~ species + day + (1|site), data = mimics, family = binomial)
+summary(m12, corr = FALSE)
+```
+
+
+-------------------------------------------------------------------------------------------------------
+Extra Code: 
+
+```{r}
+m0 <- glmer(attacks ~ species + trial + time.delay + (1|site), data = data, family = binomial)
+summary(m0, corr = FALSE)
+##no patterns?
+```
+
+```{r}
+m1 <- glmer(attacks ~ species*time.delay + (1|site), data = data, family = binomial)
 summary(m1, corr = FALSE)
+##no differences in attack rates between time time delayed trials 
+```
 
-m2 <- glmer(attacks ~ species*trial + (1|site), data = pld, family = binomial)
-summary(m2, corr = FALSE) 
+```{r}
+m0.5 <- glmer(attacks ~ species*day + (1|site), data = data, family = binomial)
+summary(m0.5)
+
+### "fixed-effect model matrix is rank deficient so dropping 8 columns / coefficients" what??? 
+```
+
+GLMMs for Time Delayed Trials (remove simultaneous experiment from this analysis)
+###Models with all experimental days included 
+
+
+```{r}
+m2 <- glmer(attacks ~ species + trial + time.delay + day + (1|site), data =  temp.delay, family = binomial)
+summary(m2, corr = FALSE)
+####significant difference in attack rates between the model and mimic trials for the time-delayed experiments 
+####"day" is highly significant predictor of patterns in the data 
+```
+
+```{r}
+m3 <- glmer(attacks ~ species*trial + time.delay + day + (1|site), data =  temp.delay, family = binomial)
+summary(m3, corr = FALSE) 
+```
+
+```{r}
+m4 <- glmer(attacks ~ species*day + time.delay + (1|site), data =  temp.delay, family = binomial)
+summary(m4, corr = FALSE) 
+###Day explains attack rates on different species? 
+```
+
+```{r}
+m5 <- glmer(attacks ~ species*day + (1|site), data =  temp.delay, family = binomial)
+summary(m5, corr = FALSE) 
+```
+
+```{r}
+m6 <- glmer(attacks ~ species*time.delay + (1|site), data =  temp.delay, family = binomial)
+summary(m6, corr = FALSE) 
+###no significant differences in attacks between time delayed trials?
+```
+
+###Models with only post-learning days (pld) to focus in on patterns of attack on days after birds have learned model unpalatability 
+```{r}
+pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+```
+
+```{r}
+m7 <- glmer(attacks ~ species + trial + time.delay + day + (1|site), data = pld, family = binomial)
+summary(m7, corr = FALSE)
+###"day" is no longer significant 
+```
+
+```{r}
+m8 <- glmer(attacks ~ trial*species + (1|site), data = pld, family = binomial)
   ##interaction between species and trial for post learning days
   ##removed time.delay... doesn't explain patterns in the data?? 
   ##reach out to data people at BU to help interpret these results 
-
-m3 <- glmer(attacks ~ species*trial + (1|site), data =  temp.delay, family = binomial)
-summary(m3, corr = FALSE) ## includes all experimental days 
-
-m4 <- glmer(attacks ~ species*day + time.delay + (1|site), data =  temp.delay, family = binomial)
-summary(m4, corr = FALSE) 
+  ##significant differences in attack rates between model and mimic trials 
 ```
 
 ```{r}
+m10 <- glmer(attacks ~ species + time.delay + day + (1|site), data = models, family = binomial)
+summary(m10, corr = FALSE)
+
+models.pld <- subset(pld, trial == "model", drop = FALSE)
+mimics.pld <- subset(pld, trial == "mimic", drop = FALSE)
+
+m11 <- glmer(attacks ~ species + day + (1|site), data = models.pld, family = binomial)
+summary(m11, corr = FALSE) ##Significant difference in attack rates between battus and junonia, no impact of day 
+
+m13 <- glmer(attacks ~ species + time.delay + day + (1|site), data = mimics, family = binomial)
+summary(m13, corr = FALSE) ###weird warning message here... 
+
+
+m14 <- glmer(attacks ~ species + day + (1|site), data = mimics.pld, family = binomial)
+summary(m14, corr = FALSE) ###no significant difference in attack rates between junonia and limenitis, and no significant difference in attacks on days 2-4
+```
+
+
+
+Summary of Findings: 
+- no significant differences between time delayed trials in any of the models 
+- day is the main predictor of patterns in the data, with no significant diferences between species when looking at all experimental days. the effects of day go away when looking at days 2-4, and significant patterns between species emerge 
+
+GLMMs for Simultaneous Trials 
+```{r}
 sim <- subset(data, trial == "simultaneously", drop = FALSE)
 head(sim)
+m <- glmer(attacks ~ species + (1|site/fac.no), data =  sim, family = binomial)
+# Post-hoc analysis
+emmeans(m, pairwise ~ species)
 
-m5 <- glmer(attacks ~ species + day + (1|site), data = sim, family = binomial)
-summary(m5, corr = FALSE)
+m15 <- glmer(attacks ~ species + day + (1|site), data = sim, family = binomial)
+summary(m15, corr = FALSE) ###Junonia is close to being significant... 
 
-m6 <- glmer(attacks ~ species + (1|site), data = sim, family = binomial)
-summary(m6, corr = FALSE)
+m16 <- glmer(attacks ~ species + (1|site), data = sim, family = binomial)
+summary(m16, corr = FALSE)
 ##not significant, likely because of low sample sizes... is there a correction I can use? 
 ```
 
+```{r}
+four_weeks <- subset(data, time.delay == "four", drop = FALSE) 
+two_weeks <- subset(data, time.delay == "two", drop = FALSE) 
+one_week <- subset(data, time.delay == "one", drop = FALSE) 
+sim <- subset(data, trial == "simultaneously", drop = FALSE)
+```
+
+Proportionals analysis on attacks on limenitis relative to total attacks for time-delayed trials: four, two, one, and zero 
+
+```{r}
+four <- prop.test(x = c(11, 7), n = c(18, 18))
+# Printing the results
+four
+```
+
+```{r}
+m2 <- glmer(attacks ~ species + (1|site/fac.no), data =  sim, family = binomial)
+emmeans(m2, pairwise ~ species)
+```
+
+```{r}
+two <- prop.test(x = c(10, 6), n = c(16, 16))
+# Printing the results
+two
+```
+
+```{r}
+one <- prop.test(x = c(7, 7), n = c(14, 14))
+# Printing the results
+one
+```
+
+```{r}
+zero <- prop.test(x = c(4, 15), n = c(19, 19))
+# Printing the results
+zero
+```
+
+
 Sources: 
 # https://data.library.virginia.edu/getting-started-with-binomial-generalized-linear-mixed-models/
+
+
+
+[5] Attack rates on limenitis and junonia for time delayed treatments: four, two, one, & zero
+```{r}
+##Evidence of protection for the mimic 
+d <- subset(data, trial %in% c("mimic", "simultaneously"), drop = FALSE)
+mimic.phases <- subset(d, species %in% c("limenitis", "junonia"), drop = FALSE)
+
+attacks.by.treatment <- aggregate(x= mimic.phases$attacks, by= list(mimic.phases$species, mimic.phases$time.delay), FUN=sum)
+attacks.by.treatment
+
+percent <- (attacks.by.treatment$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+attacks.by.treatment$percent <- percent
+attacks.by.treatment
+```
+
+```{r}
+df <- data.frame(
+  gap.in.weeks = c("four", "two", "one", "zero"),
+  l = c(2.2, 2.0, 1.4, 0.8),
+  j = c(1.4, 1.2, 1.4, 3.0)
+)
+mimic <- t(cbind(df$l, df$j))
+barplot(mimic, beside=T, names.arg = df$gap.in.weeks, col=c("black","grey"),ylim= c(0,3), cex.axis=2)
+```
+
+```{r}
+four_weeks <- subset(mimics, time.delay == "four", drop = FALSE) 
+two_weeks <- subset(mimics, time.delay == "two", drop = FALSE) 
+one_week <- subset(mimics, time.delay == "one", drop = FALSE) 
+sim <- subset(data, trial == "simultaneously", drop = FALSE)
+
+zero_gap <- subset(sim, species %in% c("sim_limenitis", "sim_junonia"), drop = FALSE)
+```
+
+
+```{r}
+four <- aggregate(x= four_weeks$attacks, by= list(four_weeks$species), FUN=sum)
+percent <- (four$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+four$percent <- percent
+four
+
+four.fig <- ggplot(four, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,3)
+four.fig <- four.fig + xlab("Species") + ylab("Attack Rate")
+four.fig <- four.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+four.fig
+```
+
+```{r}
+two <- aggregate(x= two_weeks$attacks, by= list(two_weeks$species), FUN=sum)
+percent <- (two$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+two$percent <- percent
+two
+
+two.fig <- ggplot(two, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,3)
+two.fig <- two.fig + xlab("Species") + ylab("Attack Rate")
+two.fig <- two.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+two.fig
+```
+
+```{r}
+one <- aggregate(x= one_week$attacks, by= list(one_week$species), FUN=sum)
+percent <- (one$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+one$percent <- percent
+one
+
+one.fig <- ggplot(one, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,3)
+one.fig <- one.fig + xlab("Species") + ylab("Attack Rate")
+one.fig <- one.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+one.fig
+```
+
+```{r}
+zero <- aggregate(x= zero_gap$attacks, by= list(zero_gap$species), FUN=sum)
+percent <- (zero$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+zero$percent <- percent
+zero
+
+zero.fig <- ggplot(zero, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,3)
+zero.fig <- zero.fig + xlab("Species") + ylab("Attack Rate")
+zero.fig <- zero.fig + scale_x_discrete(limits =  c("sim_limenitis", "sim_junonia"), labels = c("sim_limenitis" = "Limenitis arthemis (mimic)","simjunonia" = "Junonia coenia (control)") )
+zero.fig
+```
+
+```{r}
+figure <- ggarrange(four.fig, two.fig, one.fig, zero.fig,
+                    labels = c("A", "B", "C", "D"),
+                    ncol = 2, nrow = 2)
+figure
+```
 

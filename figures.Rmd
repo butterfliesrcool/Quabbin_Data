@@ -5,85 +5,510 @@ date: "2/25/2022"
 output: html_document
 ---
 
-LEARNING PHASE: ATTACKS ON BATTUS AND JUNONIA BY DAY 
+Packages 
 ```{r}
-df <- data.frame(
-  day = c(1, 2, 3, 4),
-  b = c(20, 3, 3, 2),
-  j = c(16, 10, 4, 8)
+library(curl)
+library(ggplot2)
+library(ggpubr)
+library(tidyverse)
+library(cowplot)
+library(patchwork)
+library(ggmap)
+library(googleway)
+library("rstudioapi")
+```
+
+Load count data 
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_Count_Data.csv")
+data <- read.csv(d, header = TRUE, sep = ",")
+head(data)
+```
+
+subset only time-delayed trials 
+```{r}
+time.delay <- subset(data, time.delay %in% c("four", "two", "one"), drop = FALSE)
+class(time.delay$day) #integer...
+time.delay$day <- as.factor(time.delay$day)
+class(time.delay$day)
+```
+
+[1] Did birds learn to avoid Bitrex-treated facsimiles of Battus philenor (Pipevine Swallowtail)? 
+
+We expect to see high attack rates on Battus philenor initially because it is a large, conspicuous butterfly relative to the control, but attacks on this species should decline rapidly as avian predators learn to avoid it. 
+
+subset out model and mimic trials for figures 
+```{r}
+models <- subset(time.delay, trial == "model", drop = FALSE) 
+mimics <- subset(time.delay, trial == "mimic", drop = FALSE)
+```
+
+# MODELS 
+```{r}
+# code to add attack rates to dataset 
+length(models$attacks)
+attack.rate <- (models$attacks/1500)*100
+length(attack.rate)
+models$attack.rate <- attack.rate
+```
+
+```{r}
+modeldays <- aggregate(x= models$attacks, by= list(models$day, models$species), FUN=sum)
+modeldays
+
+modeldays.rates <- aggregate(x= models$attack.rate, by= list(models$day, models$species), FUN=sum)
+modeldays.rates
+```
+
+##BATTUS
+```{r}
+# code to add standard deviation by day to dataset 
+b <- subset(models, species == "model_battus", drop = FALSE)
+battus <- aggregate(x=b$attack.rate, by = list(b$species, b$day), FUN=sum)
+battus
+
+b1 <- subset(b, day == "1", drop = FALSE)
+b2 <- subset(b, day == "2", drop = FALSE)
+b3 <- subset(b, day == "3", drop = FALSE)
+b4 <- subset(b, day == "4", drop = FALSE)
+
+b1.sd <- sd(b1$attack.rate)
+b2.sd <- sd(b2$attack.rate)
+b3.sd <- sd(b3$attack.rate)
+b4.sd <- sd(b4$attack.rate)
+
+battus <- data.frame(
+  Day = battus$Group.2,
+  Attack.Rate = battus$x,
+  sd = c(b1.sd, b2.sd, b3.sd, b4.sd)
 )
-learning <- t(cbind(df$b, df$j))
-barplot(learning, beside=T, names.arg = df$day, col=c("black","grey"))
-```
-```{r}
-sim <- c(7, 4, 15)
-species <- c("Battus", "Limenitis", "Junonia (control)")
-barplot(sim ~ species)
+battus
 ```
 
 ```{r}
-learn <- c(28, 38)
-species <- c("Battus", "Junonia (control)")
-barplot(learn ~ species, col=c("black","grey"))
+b <- ggplot(battus) 
+b <- b + geom_bar( aes(Day, Attack.Rate), stat="identity", fill="blue4", width=1)
+b <- b + ylim(0,1.5)
+b <- b + xlab("Day") 
+b <- b + ylab("Attack Rate") 
+b <- b + ggtitle(expression(paste(bolditalic("Battus philenor "), bold("(model)"))))
+b <- b + geom_errorbar( aes(x=Day, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+b.plot <- b + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=17), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+b.plot 
 ```
 
+##JUNONIA
 ```{r}
-test <- c(28, 20)
-species <- c("Limenitis", "Junonia (control)")
-data <- data.frame(species, test, learn)
-data$species <- factor(data$species, levels=c("Limenitis", "Junonia (control)"))
+# code to add standard deviation by day to dataset 
+mo.j <- subset(models, species == "model_junonia", drop = FALSE)
+mod.junonia <- aggregate(x=mo.j$attack.rate, by = list(mo.j$species, mo.j$day), FUN=sum)
+mod.junonia
 
-barplot(data$test  ~ data$species, col=c("black","grey"))
-```
+mo.j1 <- subset(mo.j, day == "1", drop = FALSE)
+mo.j2 <- subset(mo.j, day == "2", drop = FALSE)
+mo.j3 <- subset(mo.j, day == "3", drop = FALSE)
+mo.j4 <- subset(mo.j, day == "4", drop = FALSE)
 
-```{r}
-##All attacks for days 1-4
-df <- data.frame(
-test.species = c(28, 28),
-junonia = c(38, 20),
-phase = c("learning", "testing")
+mo.j1.sd <- sd(mo.j1$attack.rate)
+mo.j2.sd <- sd(mo.j2$attack.rate)
+mo.j3.sd <- sd(mo.j3$attack.rate)
+mo.j4.sd <- sd(mo.j4$attack.rate)
+
+mo.junonia <- data.frame(
+  Day = mod.junonia$Group.2,
+  Attack.Rate = mod.junonia$x,
+  sd = c(mo.j1.sd, mo.j2.sd, mo.j3.sd, mo.j4.sd)
 )
-
-attacks <- t(cbind(df$test.species, df$junonia))
-barplot(attacks, beside=T, names.arg = df$phase, col=c("black","grey"), cex.axis=1.5)
-
+mo.junonia
 ```
+
 ```{r}
-##Post learning day attacks 
-df <- data.frame(
-test.species = c(8, 16),
-junonia = c(22, 10),
-phase = c("learning", "testing")
+j <- ggplot(mo.junonia) 
+j <- j + geom_bar( aes(Day, Attack.Rate), stat="identity", fill="bisque4", width=1)
+j <- j + ylim(0,1.5)
+j <- j + xlab("Day") 
+j <- j + ylab("Attack Rate") 
+j <- j + ggtitle(expression(paste(bolditalic("Junonia coenia "), bold("(control)"))))
+j <- j + geom_errorbar( aes(x=Day, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+mod.j.plot <- j + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=17), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+mod.j.plot 
+```
+
+
+# MIMICS 
+```{r}
+# code to add attack rates to dataset 
+length(mimics$attacks)
+mim.attack.rate <- (mimics$attacks/1500)*100
+length(mim.attack.rate)
+mimics$attack.rate <- mim.attack.rate
+```
+
+```{r}
+mimicsdays <- aggregate(x= mimics$attacks, by= list(mimics$day, mimics$species), FUN=sum)
+mimicsdays
+
+mimicsdays.rates <- aggregate(x= mimics$attack.rate, by= list(mimics$day, mimics$species), FUN=sum)
+mimicsdays.rates
+```
+
+##LIMENITIS
+```{r}
+# code to add standard deviation by day to dataset 
+l <- subset(mimics, species == "mimic_limenitis", drop = FALSE)
+limenitis <- aggregate(x=l$attack.rate, by = list(l$species, l$day), FUN=sum)
+limenitis
+
+l1 <- subset(l, day == "1", drop = FALSE)
+l2 <- subset(l, day == "2", drop = FALSE)
+l3 <- subset(l, day == "3", drop = FALSE)
+l4 <- subset(l, day == "4", drop = FALSE)
+
+l1.sd <- sd(l1$attack.rate)
+l2.sd <- sd(l2$attack.rate)
+l3.sd <- sd(l3$attack.rate)
+l4.sd <- sd(l4$attack.rate)
+
+limenitis <- data.frame(
+  Day = limenitis$Group.2,
+  Attack.Rate = limenitis$x,
+  sd = c(l1.sd, l2.sd, l3.sd, l4.sd)
 )
-
-attacks.pld <- t(cbind(df$test.species, df$junonia))
-barplot(attacks.pld, beside=T, names.arg = df$phase, col=c("black","grey"), cex.axis=1.5)
-
+limenitis
 ```
 
 ```{r}
-df <- data.frame(
-  transect = c(1, 2, 3, 4),
-  l = c(11, 10, 7, 4),
-  j = c(7, 6, 7, 15)
+l <- ggplot(limenitis) 
+l <- l + geom_bar( aes(Day, Attack.Rate), stat="identity", fill="deepskyblue3", width=1)
+l <- l + ylim(0,1.5)
+l <- l + xlab("Day") 
+l <- l + ylab("Attack Rate") 
+l <- l + ggtitle(expression(paste(bolditalic("Limenitis arthemis "), bold("(mimic)"))))
+l <- l + geom_errorbar( aes(x=Day, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+l.plot <- l + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=17), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+l.plot 
+```
+
+##JUNONIA
+```{r}
+# code to add standard deviation by day to dataset 
+mi.j <- subset(mimics, species == "mimic_junonia", drop = FALSE)
+mim.junonia <- aggregate(x=mi.j$attack.rate, by = list(mi.j$species, mi.j$day), FUN=sum)
+mim.junonia
+
+mi.j1 <- subset(mi.j, day == "1", drop = FALSE)
+mi.j2 <- subset(mi.j, day == "2", drop = FALSE)
+mi.j3 <- subset(mi.j, day == "3", drop = FALSE)
+mi.j4 <- subset(mi.j, day == "4", drop = FALSE)
+
+mi.j1.sd <- sd(mi.j1$attack.rate)
+mi.j2.sd <- sd(mi.j2$attack.rate)
+mi.j3.sd <- sd(mi.j3$attack.rate)
+mi.j4.sd <- sd(mi.j4$attack.rate)
+
+mi.junonia <- data.frame(
+  Day = mim.junonia$Group.2,
+  Attack.Rate = mim.junonia$x,
+  sd = c(mi.j1.sd, mi.j2.sd, mi.j3.sd, mi.j4.sd)
 )
-testing <- t(cbind(df$l, df$j))
-barplot(testing, beside=T, names.arg = df$transect, col=c("black","grey"))
-```
-```{r}
-result <- c(T1, T2, T3, )
-result <- signif(result, digits = 3)
-result
+mi.junonia
 ```
 
-Testing Phase Analysis 
 ```{r}
-df <- data.frame(
-  transect = c(1, 2, 3, 4),
-  l = c(61.1, 62.5, 50, 21.1),
-  j = c(38.9, 37.5, 50, 78.9)
+j <- ggplot(mi.junonia) 
+j <- j + geom_bar( aes(Day, Attack.Rate), stat="identity", fill="bisque4", width=1)
+j <- j + ylim(0,1.5)
+j <- j + xlab("Day") 
+j <- j + ylab("Attack Rate") 
+j <- j + ggtitle(expression(paste(bolditalic("Junonia coenia "), bold("(control)")) ))
+j <- j + geom_errorbar( aes(x=Day, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+mim.j.plot <- j + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=17), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+mim.j.plot 
+```
+
+```{r}
+patchwork = b.plot + mod.j.plot + l.plot + mim.j.plot
+
+# Remove title from second subplot
+patchwork[[2]] = patchwork[[2]] + theme(axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank() )
+
+# Remove title from third subplot
+patchwork[[4]] = patchwork[[4]] + theme(axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank() )
+
+patchwork
+```
+
+--------------------------------------
+
+Calculate attack rates on Battus philenor 
+```{r}
+l <- subset(mimics, species == "mimic_limenitis", drop = FALSE)
+### there were 1,500 facsimilies of each species in the field for time-delayed trials one-four 
+l.days <- aggregate(x= l$attacks, by= list(l$day), FUN=sum)
+percent <- (l.days$x/1500)*100
+l.days$percent <- percent
+l.days
+```
+
+Calculate attack rates on Junonia coenia 
+```{r}
+lj <- subset(mimics, species == "mimic_junonia", drop = FALSE)
+lj.days <- aggregate(x= lj$attacks, by= list(lj$day), FUN=sum)
+percent <- (lj.days$x/1500)*100
+lj.days$percent <- percent
+lj.days
+```
+
+Calculate attack rates on Junonia coenia 
+```{r}
+j <- subset(models, species == "model_junonia", drop = FALSE)
+j.days <- aggregate(x= j$attacks, by= list(j$day), FUN=sum)
+percent <- (j.days$x/1500)*100
+j.days$percent <- percent
+j.days
+```
+
+Summary of total attaks on Battus and Junonia (control) during model trials 
+
+
+Calculate attack rates on Battus philenor 
+```{r}
+###NOTE: presenting data in terms of "attack rates" instead of "number of attacks" seems to be the industry norm 
+
+b <- subset(models, species == "model_battus", drop = FALSE)
+### there were 1,500 facsimilies of each species in the field for time-delayed trials one-four 
+b.days <- aggregate(x= b$attacks, by= list(b$day), FUN=sum)
+percent <- (b.days$x/1500)*100
+b.days$percent <- percent
+b.days
+```
+
+# Compare attacks across the time delayed experiments 
+
+## transect map at quabbin 
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_GIS_Data.csv")
+map <- read.csv(d, header = TRUE, sep = ",")
+head(map)
+```
+
+```{r}
+map <- subset(map, select = c(experiment, site, latitude, longitude) )
+head(map)
+```
+
+```{r}
+register_google(key = "")
+```
+
+```{r}
+quab.map <- ggmap(get_googlemap(center = c(lon = -72.28, lat = 42.42),
+                    zoom = 11, scale = 2,
+                    maptype ='roadmap',
+                    color = 'color')) 
+quab.map <- quab.map + geom_point(aes(x = longitude, y = latitude, color = experiment), data = map, size = 3)  
+quab.map <- quab.map + theme(legend.position="right", 
+                             axis.title = element_text(size = 15, face="bold"), 
+                             axis.text = element_text(size = 15),
+                             legend.title = element_text(face ="bold")) 
+quab.map <- quab.map + xlab("Longitude") 
+quab.map <- quab.map + ylab("Latitude") 
+quab.map <- quab.map + labs(color = "Experiment Type") 
+
+quab.map <- quab.map + scale_color_manual(breaks = c("four", "two", "one", "sim"), 
+                                          values = c("darkblue", "darkorchid3", "darkred", "darkorange"), 
+                                          labels = c("Four-Week Delay", "Two-Week Delay", "One-Week Delay", "Simultaneous"))
+quab.map
+```
+
+## attacks on mimics and control across time-delayed experiments 
+
+```{r}
+# attack counts on limenitis and junonia for time delayed trials: four, two, one, & zero 
+l <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.exp.mimic.data.csv")
+mimic.time <- read.csv(l, header = TRUE, sep = ",")
+# code to add attack rates to dataset 
+attack.rate <- (mimic.time$attacks/500)*100
+mimic.time$attack.rate <- attack.rate
+head(mimic.time)
+```
+
+```{r}
+# subset out each experiment 
+four_weeks <- subset(mimic.time, time.delay == "four", drop = FALSE) 
+two_weeks <- subset(mimic.time, time.delay == "two", drop = FALSE) 
+one_week <- subset(mimic.time, time.delay == "one", drop = FALSE) 
+simultaneous <- subset(mimic.time, time.delay == "zero", drop = FALSE)
+```
+
+```{r}
+# four week experiment 
+four <- aggregate(x=four_weeks$attack.rate, by = list(four_weeks$species), FUN=sum)
+four
+
+lim4 <- subset(four_weeks, species == "limenitis", drop = FALSE)
+jun4 <- subset(four_weeks, species == "junonia", drop = FALSE)
+
+lim4.sd <- sd(lim4$attack.rate)
+jun4.sd <- sd(jun4$attack.rate)
+
+
+four <- data.frame(
+  Species = four$Group.1,
+  Attack.Rate = four$x,
+  sd = c(jun4.sd, lim4.sd)
 )
-testing <- t(cbind(df$l, df$j))
-barplot(testing, beside=T, names.arg = df$transect, col=c("black","grey"),ylim= c(0,100), cex.axis=2)
+four
+```
+
+```{r}
+f <- ggplot(four) 
+f <- f + geom_bar(aes(Species, Attack.Rate), stat = "identity", fill=c("grey27", "darkblue"), width = 0.5) 
+f <- f + ylim(0,3.5)
+f <- f + xlab("Species") 
+f <- f + ylab("Attack Rate")
+f <- f + scale_x_discrete(limits =  c("limenitis", "junonia"), 
+                          labels = c("limenitis" = "Mimic","junonia" = "Control"))
+f <- f + ggtitle(expression(bold("Four-Week Experiment") ))
+f <- f + geom_errorbar( aes(x=Species, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+four.fig <- f + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=20), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+
+four.fig
+```
+
+```{r}
+# two week experiment 
+two <- aggregate(x=two_weeks$attack.rate, by = list(two_weeks$species), FUN=sum)
+two
+
+lim2 <- subset(two_weeks, species == "limenitis", drop = FALSE)
+jun2 <- subset(two_weeks, species == "junonia", drop = FALSE)
+
+lim2.sd <- sd(lim2$attack.rate)
+jun2.sd <- sd(jun2$attack.rate)
+
+
+two <- data.frame(
+  Species = two$Group.1,
+  Attack.Rate = two$x,
+  sd = c(jun2.sd, lim2.sd)
+)
+two
+```
+
+```{r}
+t <- ggplot(two) 
+t <- t + geom_bar(aes(Species, Attack.Rate), stat = "identity", fill=c("grey27", "darkorchid3"), width = 0.5) 
+t <- t + ylim(0,3.5)
+t <- t + xlab("Species") 
+t <- t + ylab("Attack Rate")
+t <- t + scale_x_discrete(limits =  c("limenitis", "junonia"), 
+                          labels = c("limenitis" = "Mimic","junonia" = "Control"))
+t <- t + ggtitle(expression(bold("Two-Week Experiment") ))
+t <- t + geom_errorbar( aes(x=Species, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+two.fig <- t + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=20), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+
+two.fig
+```
+
+```{r}
+# one week experiment 
+one <- aggregate(x=one_week$attack.rate, by = list(one_week$species), FUN=sum)
+one
+
+lim1 <- subset(one_week, species == "limenitis", drop = FALSE)
+jun1 <- subset(one_week, species == "junonia", drop = FALSE)
+
+lim1.sd <- sd(lim1$attack.rate)
+jun1.sd <- sd(jun1$attack.rate)
+
+
+one <- data.frame(
+  Species = one$Group.1,
+  Attack.Rate = one$x,
+  sd = c(jun1.sd, lim1.sd)
+)
+one
+```
+
+```{r}
+o <- ggplot(one) 
+o <- o + geom_bar(aes(Species, Attack.Rate), stat = "identity", fill=c("grey27", "darkred"), width = 0.5) 
+o <- o + ylim(0,3.5)
+o <- o + xlab("Species") 
+o <- o + ylab("Attack Rate")
+o <- o + scale_x_discrete(limits =  c("limenitis", "junonia"), 
+                          labels = c("limenitis" = "Mimic","junonia" = "Control"))
+o <- o + ggtitle(expression(bold("One-Week Experiment") ))
+o <- o + geom_errorbar( aes(x=Species, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+one.fig <- o + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=20), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+
+one.fig
+```
+
+```{r}
+# simultaneous experiment 
+zero <- aggregate(x=simultaneous$attack.rate, by = list(simultaneous$species), FUN=sum)
+zero
+
+lim0 <- subset(simultaneous, species == "limenitis", drop = FALSE)
+jun0 <- subset(simultaneous, species == "junonia", drop = FALSE)
+
+lim0.sd <- sd(lim0$attack.rate)
+jun0.sd <- sd(jun0$attack.rate)
+
+
+zero <- data.frame(
+  Species = zero$Group.1,
+  Attack.Rate = zero$x,
+  sd = c(jun0.sd, lim0.sd)
+)
+zero
+```
+
+```{r}
+z <- ggplot(zero) 
+z <- z + geom_bar(aes(Species, Attack.Rate), stat = "identity", fill=c("grey27", "darkorange"), width = 0.5) 
+z <- z + ylim(0,3.5)
+z <- z + xlab("Species") 
+z <- z + ylab("Attack Rate")
+z <- z + scale_x_discrete(limits =  c("limenitis", "junonia"), 
+                          labels = c("limenitis" = "Mimic","junonia" = "Control"))
+z <- z + ggtitle(expression(bold("Simultaneous Experiment") ))
+z <- z + geom_errorbar( aes(x=Species, ymin=Attack.Rate-sd, ymax=Attack.Rate+sd), width=0.4, size=1)
+zero.fig <- z + theme( aspect.ratio = 4/3, plot.title = element_text(hjust = 0.5, size=20), axis.title = element_text(size = 15), axis.text = element_text(size = 15)) 
+
+zero.fig
+```
+
+```{r}
+fig = four.fig + two.fig + one.fig + zero.fig
+
+fig[[1]] = fig[[1]] + theme(axis.title.x = element_blank())
+
+fig[[2]] = fig[[2]] + theme(axis.text.y = element_blank(),
+                            axis.ticks.y = element_blank(),
+                            axis.title.y = element_blank(), 
+                            axis.title.x = element_blank())
+
+fig[[3]] = fig[[3]] + theme(axis.text.y = element_blank(),
+                            axis.ticks.y = element_blank(),
+                            axis.title.y = element_blank(), 
+                            axis.title.x = element_blank() )
+
+fig[[4]] = fig[[4]] + theme(axis.text.y = element_blank(),
+                            axis.ticks.y = element_blank(),
+                            axis.title.y = element_blank(), 
+                            axis.title.x = element_blank() )
+
+attack.fig <- fig + plot_layout(nrow=1)
+```
+```{r}
+attack.fig + quab.map + plot_layout(ncol=1)
 ```
 
