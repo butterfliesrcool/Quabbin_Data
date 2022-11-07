@@ -1,0 +1,41 @@
+---
+title: "Transect_Map_Quabbin"
+author: "Abby Robinson"
+date: "10/17/2022"
+output: html_document
+---
+```{r}
+library(curl)
+library(ggplot2)
+library(ggmap)
+library(googleway)
+library("rstudioapi")
+```
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_GIS_Data.csv")
+map <- read.csv(d, header = TRUE, sep = ",")
+head(map)
+```
+
+```{r}
+map <- subset(map, select = c(experiment, site, latitude, longitude) )
+head(map)
+```
+
+```{r}
+register_google(key = "")
+```
+
+```{r}
+p <- ggmap(get_googlemap(center = c(lon = -72.28, lat = 42.42),
+                    zoom = 11, scale = 2,
+                    maptype ='roadmap',
+                    color = 'color')) + geom_point(aes(x = longitude, y = latitude, color = experiment), data = map, size = 3)  +  theme(legend.position="right") + xlab("Longitude") + ylab("Latitude") + labs(color = "Experiment Type") 
+
+p <- p  + scale_color_manual(breaks = c("four", "two", "one", "sim"), values = c("darkblue", "darkorchid3", "darkred", "darkorange"), labels = c("Four-Week Delay", "Two-Week Delay", "One-Week Delay", "Simultaneous"))
+
+p
+```
+
+                         

@@ -1,0 +1,57 @@
+---
+title: "count"
+author: "Abby Robinson"
+date: "10/20/2022"
+output: html_document
+---
+
+##Packages 
+```{r}
+library(curl)
+library(ggplot2)
+library(lme4)
+library(mvtnorm)
+library(lattice)
+library(multcomp)
+library(emmeans)
+library(ggpubr)
+remove.packages("MASS")
+```
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_Model_Count_Data.csv")
+data <- read.csv(d, header = TRUE, sep = ",")
+head(data)
+```
+
+```{r}
+class(data$day) #integer...
+data$day <- as.factor(data$day)
+class(data$day)
+```
+
+Summary of total attaks on Battus and Junonia (control) during model trials 
+```{r}
+modeldays <- aggregate(x= data$attacks, by= list(data$day, data$species), FUN=sum)
+modeldays
+```
+
+
+
+```{r}
+bat <- subset(data, species == "model_battus", drop = FALSE) 
+jun1 <- subset(data, species == "model_junonia", drop = FALSE) 
+```
+
+```{r}
+###effect of day on attack rates for model battus 
+m3 <- glmer(attacks ~ day + (1|site), data =  bat, family = poisson)
+summary(m3)
+emmeans(m3, pairwise ~ day)
+```
+
+```{r}
+###effects of day on attack rates for model junonia (control)
+m4 <- glmer(attacks ~ day + (1|site), data = jun1, family = poisson)
+emmeans(m4, pairwise ~ day)
+```

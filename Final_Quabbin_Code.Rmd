@@ -1,0 +1,480 @@
+---
+title: "Final_Quabbin_Code"
+author: "Abby Robinson"
+date: "10/12/2022"
+output: html_document
+---
+#Temporal Dynamics of Predator Learning in a Batesian Mimicry Complex 
+
+##Packages 
+```{r}
+library(curl)
+library(ggplot2)
+library(lme4)
+library(mvtnorm)
+library(lattice)
+library(multcomp)
+library(emmeans)
+library(ggpubr)
+```
+
+Load data 
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_TRIAL_SPECIES_data.csv")
+data <- read.csv(d, header = TRUE, sep = ",")
+head(data)
+```
+
+Subset out simultaneous trials (this experiment involved different samples sizes, so must be analyzed separately) & make sure "day" variable is factor, not integer
+```{r}
+temp.delay <- subset(data, trial %in% c("model", "mimic"), drop = FALSE)
+class(temp.delay$day) #integer...
+temp.delay$day <- as.factor(temp.delay$day)
+class(temp.delay$day)
+```
+
+subset out model and mimic trials for figures 
+```{r}
+models <- subset(temp.delay, trial == "model", drop = FALSE) 
+mimics <- subset(temp.delay, trial == "mimic", drop = FALSE)
+```
+
+[1] Did birds learn to avoid Bitrex-treated facsimiles of Battus philenor (Pipevine Swallowtail)? 
+
+We expect to see high attack rates on Battus philenor initially because it is a large, conspicuous butterfly relative to the control, but attacks on this species should decline rapidly as avian predators learn to avoid it. 
+
+##Data Visualization 
+
+###summary of attack rates and figure for model trials 
+
+Summary of total attaks on Battus and Junonia (control) during model trials 
+```{r}
+modeldays <- aggregate(x= models$attacks, by= list(models$day, models$species), FUN=sum)
+modeldays
+```
+
+Calculate attack rates on Battus philenor 
+```{r}
+###NOTE: presenting data in terms of "attack rates" instead of "number of attacks" seems to be the industry norm 
+
+b <- subset(models, species == "model_battus", drop = FALSE)
+### there were 1,500 facsimilies of each species in the field for time-delayed trials one-four 
+b.days <- aggregate(x= b$attacks, by= list(b$day), FUN=sum)
+percent <- (b.days$x/1500)*100
+b.days$percent <- percent
+b.days
+```
+
+Calculate attack rates on Junonia coenia 
+```{r}
+j <- subset(models, species == "model_junonia", drop = FALSE)
+j.days <- aggregate(x= j$attacks, by= list(j$day), FUN=sum)
+percent <- (j.days$x/1500)*100
+j.days$percent <- percent
+j.days
+```
+
+Make barplots in ggplot 
+```{r}
+battus <- ggplot(b.days, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,1.5)
+battus <- battus  + xlab("Day") + ylab("Attack Rate") + ggtitle("Battus philenor")
+
+
+junonia <- ggplot(j.days, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,1.5)
+junonia <- junonia + xlab("Day") + ylab("Attack Rate") + ggtitle("Junonia coenia")
+
+
+figure1 <- ggarrange(battus, junonia,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1)
+figure1
+figure1 <- annotate_figure(figure1, top = text_grob("Attacks by Day for Model Trials", 
+               color = "blue", face = "bold", size = 14))
+figure1
+```
+
+###Same analysis but with mimic trials 
+
+```{r}
+mimicdays <- aggregate(x= mimics$attacks, by= list(mimics$day, mimics$species), FUN=sum)
+mimicdays 
+```
+
+Calculate attack rates on Battus philenor 
+```{r}
+l <- subset(mimics, species == "mimic_limenitis", drop = FALSE)
+### there were 1,500 facsimilies of each species in the field for time-delayed trials one-four 
+l.days <- aggregate(x= l$attacks, by= list(l$day), FUN=sum)
+percent <- (l.days$x/1500)*100
+l.days$percent <- percent
+l.days
+```
+
+Calculate attack rates on Junonia coenia 
+```{r}
+lj <- subset(mimics, species == "mimic_junonia", drop = FALSE)
+lj.days <- aggregate(x= lj$attacks, by= list(lj$day), FUN=sum)
+percent <- (lj.days$x/1500)*100
+lj.days$percent <- percent
+lj.days
+```
+
+Make barplots in ggplot 
+```{r}
+limenitis <- ggplot(l.days, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,1.5)
+limenitis <- limenitis  + xlab("Day") + ylab("Attack Rate") + ggtitle("Limenitis arthemis")
+
+
+l.junonia <- ggplot(lj.days, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity") + ylim(0,1.5)
+l.junonia <- l.junonia + xlab("Day") + ylab("Attack Rate") + ggtitle("Junonia coenia")
+
+
+figure2 <- ggarrange(limenitis, l.junonia,
+                    labels = c("C", "D"),
+                    ncol = 2, nrow = 1)
+figure2
+
+figure2 <- annotate_figure(figure2, top = text_grob("Attacks by Day for Mimic Trials", 
+               color = "blue", face = "bold", size = 14))
+figure2
+```
+
+```{r}
+figure3 <- ggarrange(figure1, figure2,
+                    ncol = 1, nrow = 2)
+figure3
+```
+
+
+I conducted generalized linear mixed model analyses with post-hoc tukey analyses for pairwise comparison of each day of the 4-day experiments for each species in the model and mimic "phases" of the experiment
+
+Models analyzing all species data in model and mimic trials 
+```{r}
+m1 <- glmer(attacks ~ species*day + (1|site/fac.no), data =  models, family = binomial)
+emmeans(m1, pairwise ~ species*day) 
+```
+
+```{r}
+m2 <- glmer(attacks ~ species*day + (1|site/fac.no), data =  mimics, family = binomial)
+emmeans(m2, pairwise ~ species*day) 
+```
+
+Subsetting out each species to focus the analysis 
+```{r}
+bat <- subset(models, species == "model_battus", drop = FALSE) 
+jun1 <- subset(models, species == "model_junonia", drop = FALSE) 
+```
+
+```{r}
+###effect of day on attack rates for model battus 
+m3 <- glmer(attacks ~ day + (1|site/fac.no), data =  bat, family = binomial)
+emmeans(m3, pairwise ~ day)
+```
+
+```{r}
+###effects of day on attack rates for model junonia (control)
+m4 <- glmer(attacks ~ day + (1|site/fac.no), data = jun1, family = binomial)
+emmeans(m4, pairwise ~ day)
+```
+
+```{r}
+lim <- subset(mimics, species == "mimic_limenitis", drop = FALSE) 
+jun2 <- subset(mimics, species == "mimic_junonia", drop = FALSE) 
+```
+
+```{r}
+m5 <- glmer(attacks ~ day + (1|site/fac.no), data =  lim, family = binomial)
+emmeans(m5, pairwise ~ day)
+```
+
+```{r}
+m6 <- glmer(attacks ~ day + (1|site/fac.no), data =  jun2, family = binomial)
+emmeans(m6, pairwise ~ day)
+```
+
+QUESTION: 
+-is this analysis acceptable? 
+-should I present the models of the "model" and "mimic" trials or the models of each species? 
+-what should I focus on in a paper? which p values do I use? 
+
+______________________________________________________________________________________________________
+[2] Do attack rates differ between model and mimic *relative to controls* across model and mimic phases of the time delayed experiments 
+
+##Data Visualization 
+
+subset attack totals and calculate attack rates for all experimental days in model and mimic trials 
+```{r}
+all <- aggregate(x= temp.delay$attacks, by= list(temp.delay$species), FUN=sum)
+all.models <- aggregate(x= models$attacks, by= list(models$species), FUN=sum)
+
+percent <- (all.models$x/1500)*100
+all.models$percent <- percent
+all.models
+
+all.mimics <- aggregate(x= mimics$attacks, by= list(mimics$species), FUN=sum)
+percent <- (all.mimics$x/1500)*100
+all.mimics$percent <- percent
+all.mimics
+```
+
+subset attack totals and calculate attack rates for post learning days in model and mimic trials 
+```{r}
+pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+pld.attacks <- aggregate(x= pld$attacks, by= list(pld$species), FUN=sum)
+pld.attacks
+
+models.pld <- subset(pld, trial == "model", drop = FALSE)
+mimics.pld <- subset(pld, trial == "mimic", drop = FALSE)
+
+pld.models <- aggregate(x= models.pld$attacks, by= list(models.pld$species), FUN=sum)
+pld.models
+
+percent <- (pld.models$x/1500)*100
+pld.models$percent <- percent
+pld.models
+
+pld.mimics <- aggregate(x= mimics.pld$attacks, by= list(mimics.pld$species), FUN=sum)
+pld.mimics
+
+percent <- (pld.mimics$x/1500)*100
+pld.mimics$percent <- percent
+pld.mimics
+```
+
+figure for all learning days 
+```{r}
+models1 <- ggplot(all.models, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", width = 0.5, fill = c("black", "grey27")) + ylim(0,3)
+models1 <- models1  + xlab("Species") + ylab("Attack Rate") + ggtitle("Model Trial")
+models1 <- models1 + scale_x_discrete(limits =  c("model_battus", "model_junonia"), labels = c("model_battus" = "Battus philenor (model)","model_junonia" = "Junonia coenia (control)") )
+#R will usually automatically sort variables alphabetically, so the "limits" command here allows you to override that and manually specify the order of variables in the ggplot.
+
+
+mimics1 <- ggplot(all.mimics, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", width = 0.5, fill = c("grey27", "black")) + ylim(0,3)
+mimics1 <- mimics1 + xlab("Species") + ylab("Attack Rate") + ggtitle("Mimic Trial")
+mimics1 <- mimics1 + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+
+figure <- ggarrange(models1, mimics1,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1)
+all.figure <- annotate_figure(figure, top = text_grob("Attacks for all Experimental Days (days 1 - 4)", 
+               color = "blue", face = "bold", size = 14))
+all.figure
+```
+
+figure for post learning days 
+```{r}
+models2 <- ggplot(pld.models, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", width = 0.5, fill = c("black", "grey27")) + ylim(0,3)
+models2 <- models2  + xlab("Species") + ylab("Attack Rate") + ggtitle("Model Trial")
+models2 <- models2 + scale_x_discrete(limits =  c("model_battus", "model_junonia"), labels = c("model_battus" = "Battus philenor (model)","model_junonia" = "Junonia coenia (control)") )
+#R will usually automatically sort variables alphabetically, so the "limits" command here allows you to override that and manually specify the order of variables in the ggplot.
+
+
+mimics2 <- ggplot(pld.mimics, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", width = 0.5, fill = c("grey27", "black")) + ylim(0,3)
+mimics2 <- mimics2 + xlab("Species") + ylab("Attack Rate") + ggtitle("Mimic Trial")
+mimics2 <- mimics2 + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+
+figure2 <- ggarrange(models2, mimics2,
+                    labels = c("C", "D"),
+                    ncol = 2, nrow = 1)
+pld.figure <- annotate_figure(figure2, top = text_grob("Attacks for Post Learning Days (days 2 - 4)",  color = "blue", face = "bold", size = 14))
+pld.figure
+```
+
+combined figure 
+```{r}
+final.fig <- ggarrange(all.figure, pld.figure,
+                    ncol = 1, nrow = 2)
+final.fig <- annotate_figure(final.fig, top = text_grob("Attacks on Facsimiles",  color = "red", face = "bold", size = 14))
+final.fig
+```
+
+##Generalized Linear Mixed Model Analysis 
+```{r}
+m7 <- glmer(attacks ~ species + (1|site/fac.no), data =  temp.delay, family = binomial)
+emmeans(m7, pairwise ~ species)
+```
+
+we expected high attack rates on battus on day one because predators have not yet learned to avoid this species, so a biologically meaningful analysis would be to look only at "post learning days" by excluding data from day one of the model trials. When we do this, we see a significant difference in attack rates between battus and junonia during the model trials (p=0.0441)
+
+```{r}
+pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+```
+
+```{r}
+m8 <- glmer(attacks ~ species + (1|site/fac.no), data =  pld, family = binomial)
+emmeans(m8, pairwise ~ species)
+```
+
+Proportions test to directly compare the proportion of attacks on models and mimics relative to their controls 
+
+##Proportions tests between battus and limenitis for each trial 
+```{r}
+all <- prop.test(x = c(28, 28), n = c(66, 48))
+all
+#### Model trial: 28 attacks on Battus, 66 attacks total 
+#### Mimic trial: 28 attacks on Limenitis, 48 attacks total 
+```
+
+```{r}
+pld <- prop.test(x = c(8, 16), n = c(30, 26))
+pld
+#### In Model trial days 2-4: 8 attacks on Battus, 30 attacks total 
+### In Mimic trial days 2-4: 16 attacks on Limenitis, 26 attacks total 
+```
+
+```{r}
+model.trial <- prop.test(x = c(28, 8), n = c(66, 30))
+model.trial
+#### Attacks on Battus over all days: 28 attacks on Battus, 66 attacks total 
+#### Attacks on Battus over post learning days:8 attacks on Battus, 30 total 
+```
+
+```{r}
+mimic.trial <- prop.test(x = c(28, 16), n = c(48, 26))
+mimic.trial
+#### Attacks on Limenitis over all days: 28 attacks on Battus, 48 attacks total 
+#### Attacks on Limenitis over post learning days: 16 attacks on Battus, 26 total 
+```
+##Proportions tests between all days and post learning days for each species 
+
+
+##Compare attacks across the time delayed experiments 
+
+```{r}
+models <- subset(temp.delay, trial == "model", drop = FALSE) 
+mimics <- subset(temp.delay, trial == "mimic", drop = FALSE)
+```
+
+```{r}
+m9 <- glmer(attacks ~ species*time.delay + (1|site/fac.no), data =  models, family = binomial)
+emmeans(m9, pairwise ~ species*time.delay)
+#### No significant differences in how birds respond to battus and junonia facsimiles between time-delayed trials (consistent with expectations)
+```
+
+```{r}
+m10 <- glmer(attacks ~ species*time.delay + (1|site/fac.no), data =  mimics, family = binomial)
+emmeans(m10, pairwise ~ species*time.delay)
+### No significant differences in how birds respond to limenitis and junonia between time-delayed trials (contrary to expectations)
+```
+
+```{r}
+four <- prop.test(x = c(11, 7), n = c(18, 18))
+
+# IN THE FOUR-WEEK GAP TRIAL: 
+##    11 attacks on Limenitis
+##    7 attacks on Junonia 
+##    18 attacks total 
+
+four
+```
+
+```{r}
+two <- prop.test(x = c(10, 6), n = c(16, 16))
+
+# IN THE TWO-WEEK GAP TRIAL: 
+##    10 attacks on Limenitis
+##    6 attacks on Junonia 
+##    16 attacks total 
+
+two
+```
+
+```{r}
+one <- prop.test(x = c(7, 7), n = c(14, 14))
+
+# IN THE ONE-WEEK GAP TRIAL: 
+##    7 attacks on Limenitis
+##    7 attacks on Junonia 
+##    14 attacks total 
+
+one
+```
+
+```{r}
+zero <- prop.test(x = c(4, 15), n = c(19, 19))
+
+# IN THE SIMULTANEOUS TRIAL: 
+##    4 attacks on Limenitis
+##    15 attacks on Junonia 
+##    19 attacks total
+
+zero
+```
+
+##Data Visualization
+```{r}
+four_weeks <- subset(mimics, time.delay == "four", drop = FALSE) 
+two_weeks <- subset(mimics, time.delay == "two", drop = FALSE) 
+one_week <- subset(mimics, time.delay == "one", drop = FALSE) 
+sim <- subset(data, trial == "simultaneously", drop = FALSE)
+
+zero_gap <- subset(sim, species %in% c("sim_limenitis", "sim_junonia"), drop = FALSE)
+```
+
+
+```{r}
+four <- aggregate(x= four_weeks$attacks, by= list(four_weeks$species), FUN=sum)
+percent <- (four$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+four$percent <- percent
+four
+
+four.fig <- ggplot(four, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", fill=c("grey27", "darkblue"), width = 0.5) + ylim(0,3)
+four.fig <- four.fig + xlab("Species") + ylab("Attack Rate")
+four.fig <- four.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)"))
+four.fig
+```
+
+```{r}
+two <- aggregate(x= two_weeks$attacks, by= list(two_weeks$species), FUN=sum)
+percent <- (two$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+two$percent <- percent
+two
+
+two.fig <- ggplot(two, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", fill=c("grey27", "darkorchid3"), width = 0.5) + ylim(0,3)
+two.fig <- two.fig + xlab("Species") + ylab("Attack Rate")
+two.fig <- two.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+two.fig
+```
+
+```{r}
+one <- aggregate(x= one_week$attacks, by= list(one_week$species), FUN=sum)
+percent <- (one$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+one$percent <- percent
+one
+
+one.fig <- ggplot(one, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", fill=c("grey27", "darkred"), width = 0.5) + ylim(0,3)
+one.fig <- one.fig + xlab("Species") + ylab("Attack Rate")
+one.fig <- one.fig + scale_x_discrete(limits =  c("mimic_limenitis", "mimic_junonia"), labels = c("mimic_limenitis" = "Limenitis arthemis (mimic)","mimic_junonia" = "Junonia coenia (control)") )
+one.fig
+```
+
+```{r}
+library(ggsignif)
+
+zero <- aggregate(x= zero_gap$attacks, by= list(zero_gap$species), FUN=sum)
+percent <- (zero$x/500)*100 ## 500 facsimiles in each time-delay treatment 
+zero$percent <- percent
+zero
+
+zero.fig <- ggplot(zero, aes(x=Group.1, y=percent)) +  geom_bar(stat = "identity", width = 0.5, fill=c("grey27", "darkorange") ) + ylim(0,3.5) + xlim(0,10) + geom_signif(y_position = c(3.3), xmin = c(3), xmax = c(7),
+              annotation=c("**"), tip_length=3)
+
+zero.fig <- zero.fig + xlab("Species") + ylab("Attack Rate")
+zero.fig <- zero.fig + scale_x_discrete(limits =  c("sim_limenitis", "sim_junonia"), labels = c("sim_limenitis" = "Limenitis arthemis (mimic)","simjunonia" = "Junonia coenia (control)") )
+
+zero.fig
+```
+
+```{r}
+figure <- ggarrange(four.fig, two.fig, one.fig, zero.fig,
+                    labels = c("A", "B", "C", "D"),
+                    ncol = 2, nrow = 2)
+figure
+```
+
+QUESTION: 
+-is there a more sophisticated way to directly compare attack rates on models and mimics relative to their controls to control for sample size issues? 
+-comparing differences in attack rates between time-delayed trials is hard because the sample sizes are so low & the GLMMs don't really work... what can I do ? is the proportions analysis sufficient? 
+
+
+

@@ -1,0 +1,93 @@
+---
+title: "PAVO_2"
+author: "Abby Robinson"
+date: "10/20/2022"
+output: html_document
+---
+
+```{r}
+library(curl)
+library(pavo)
+```
+
+```{r}
+a <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/battus_real_wing_spectra.csv")
+bat.real <- read.csv(a, header = TRUE, sep = ",")
+bat.real <- subset(bat.real, wavelength >= 300 & wavelength <= 701, drop = FALSE)
+bat.real <- as.rspec(bat.real)
+bat.real <- procspec(
+  bat.real,
+  opt =  "smooth",
+  fixneg = "zero",
+  span = 0.25,
+  bins = 20
+)
+```
+
+```{r}
+b <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/battus_facsimile_spectra.csv")
+bat.fac <- read.csv(b, header = TRUE, sep = ",")
+bat.fac <- subset(bat.fac, wavelength >= 300 & wavelength <= 701, drop = FALSE)
+bat.fac <- as.rspec(bat.fac)
+bat.fac <- procspec(
+  bat.fac,
+  opt =  "smooth",
+  fixneg = "zero",
+  span = 0.25,
+  bins = 20
+)
+```
+
+```{r}
+c <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/limenitis_real_wing_spectra.csv")
+lim.real <- read.csv(c, header = TRUE, sep = ",")
+lim.real <- subset(lim.real, wavelength >= 300 & wavelength <= 701, drop = FALSE)
+lim.real <- as.rspec(lim.real)
+lim.real <- procspec(
+  lim.real,
+  opt =  "smooth",
+  fixneg = "zero",
+  span = 0.25,
+  bins = 20
+)
+```
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/limenitis_facsimile_spectra.csv")
+lim.fac <- read.csv(d, header = TRUE, sep = ",")
+lim.fac <- subset(lim.fac, wavelength >= 300 & wavelength <= 701, drop = FALSE)
+lim.fac <- as.rspec(lim.fac)
+lim.fac <- procspec(
+  lim.fac,
+  opt =  "smooth",
+  fixneg = "zero",
+  span = 0.25,
+  bins = 20
+)
+```
+
+```{r}
+wl <- bat.real$wl
+bat.real <- bat.real$reflectance
+lim.real <- lim.real$reflectance
+bat.fac <- bat.fac$reflectance
+lim.fac <- lim.fac$reflectance
+
+specs <- cbind(wl, bat.real, lim.real, bat.fac, lim.fac)
+specs <- as.rspec(specs)
+
+summary(specs, subset = c('B1', 'B2', 'B3', 'H1', 'H2', 'H3'))
+```
+```{r}
+par(mfrow = c(2, 2))
+peakshape(specs, plot = TRUE, lim = c(350, 700))
+```
+```{r}
+vismodel <- vismodel(specs,
+  visual = "avg.v", achromatic = "ch.dc",
+  illum = "D65", relative = TRUE
+)
+vismodel.cd <- coldist(vismodel)
+vismodel.cd
+```
+```

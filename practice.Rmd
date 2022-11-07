@@ -1,0 +1,99 @@
+---
+title: "practice"
+author: "Abby Robinson"
+date: "10/11/2022"
+output: html_document
+---
+
+```{r}
+library(curl)
+library(ggplot2)
+library(lme4)
+library(AICcmodavg)
+```
+
+```{r}
+library(lme4)
+library(mvtnorm)
+library(multcomp)
+library(lattice)
+```
+
+```{r}
+d <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_TRIAL_SPECIES_data.csv")
+data <- read.csv(d, header = TRUE, sep = ",")
+head(data)
+```
+
+```{r}
+temp.delay <- subset(data, trial %in% c("model", "mimic"), drop = FALSE)
+class(temp.delay$day) #integer... boo...
+temp.delay$day <- as.factor(temp.delay$day)
+class(temp.delay$day)
+```
+
+```{r}
+m <- glmer(attacks ~ species + (1|site), data =  temp.delay, family = binomial)
+# Post-hoc analysis
+emmeans(m, pairwise ~ species)
+```
+
+```{r}
+pld <- subset(temp.delay, day %in% c("2", "3", "4"), drop = FALSE)
+```
+
+```{r}
+m1 <- glmer(attacks ~ species + (1|site), data =  pld, family = binomial)
+# Post-hoc analysis
+emmeans(m1, pairwise ~ species)
+summary(m1)
+```
+
+```{r}
+models <- subset(temp.delay, trial == "model", drop = FALSE) 
+mimics <- subset(temp.delay, trial == "mimic", drop = FALSE)
+```
+
+```{r}
+m2 <- glmer(attacks ~ species*time.delay + (1|site/fac.no), data =  models, family = binomial)
+emmeans(m2, pairwise ~ species*time.delay)
+```
+
+```{r}
+m2 <- glmer(attacks ~ species*day + (1|site), data =  models, family = binomial)
+# Post-hoc analysis
+emmeans(m2, pairwise ~ species*day) ####this model ran for the model trial data but not for mimic trial data 
+##I am going to separate by species here too just for consistency 
+
+bat <- subset(models, species == "model_battus", drop = FALSE) 
+
+mb <- glmer(attacks ~ day + (1|site/fac.no), data =  bat, family = binomial)
+# Post-hoc analysis
+summary(mb)
+emmeans(mb, pairwise ~ day)
+
+model.jun <- subset(models, species == "model_junonia", drop = FALSE) 
+
+mbj <- glmer(attacks ~ day + (1|site/fac.no), data =  model.jun, family = binomial)
+# Post-hoc analysis
+summary(mbj)
+emmeans(mbj, pairwise ~ day)
+
+```
+
+```{r}
+m3 <- glmer(attacks ~ species*day + (1|site), data =  mimics, family = binomial)
+# Post-hoc analysis
+emmeans(m3, pairwise ~ species*day) ###Model gave an error when I tried to run both limenitis and junonia in the same model, so I separated them out and ran analysis separately 
+
+lim <- subset(mimics, species == "mimic_limenitis", drop = FALSE) 
+
+ml <- glmer(attacks ~ day + (1|site/fac.no), data =  lim, family = binomial)
+# Post-hoc analysis
+emmeans(ml, pairwise ~ day)
+
+jun <- subset(mimics, species == "mimic_junonia", drop = FALSE) 
+mlj <- glmer(attacks ~ day + (1|site/fac.no), data =  jun, family = binomial)
+# Post-hoc analysis
+emmeans(mlj, pairwise ~ day)
+```

@@ -1,0 +1,804 @@
+---
+title: "Temporal Dynamics of Predator Learning in a Batesian Mimicry Complex"
+author: "Abby Robinson"
+date: "10/25/2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+## Questions for Pete  {.tabset}
+
+* Am I fitting my models correctly? 
+
+* Have I adequately checked and dealt with model assumptions? 
+
+* Should I use the poisson distribution or the negative binomial distribution? 
+
+  * Is it ok is some of my models have the poisson distribution and some have the negative binomial distribution? 
+  
+* is the analysis for [2] necessary? can I just include [1] and [3]? 
+
+* is it statistically sound that I am clumping all trials together in Q [1] for the day-by-day analysis but separating them out by time delay experiment in Q [3]? 
+
+## Packages {.tabset}
+
+```{r}
+library(curl)
+library(ggplot2)
+library(lme4)
+library(mvtnorm)
+library(lattice)
+library(multcomp)
+library(emmeans)
+library(ggpubr)
+library(DHARMa)
+```
+
+```{r}
+vignette("DHARMa", package="DHARMa") ### Useful information for checking residuals/ model assumptions 
+```
+
+## [1] Did avian predators learn to avoid facsimiles of Battus philenor during 4-day experiments, compared to the undefended facsimiles of the mimic and controls? {.tabset}
+
+### Load & prep count data from GitHub  
+
+```{r}
+c <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/Quabbin_Count_Data.csv")
+count <- read.csv(c, header = TRUE, sep = ",")
+head(count)
+```
+
+### Tell R that "day" is a factor, not an integer variable
+
+```{r}
+class(count$day) 
+count$day <- as.factor(count$day)
+class(count$day)
+```
+
+### Use **subset** function to pull out data for each species to conduct intra-species day-by-day analysis
+
+```{r}
+Battus <- subset(count, species == "model_battus", drop = FALSE)
+Model_Junonia <- subset(count, species == "model_junonia", drop = FALSE)
+Mimic_Junonia <- subset(count, species == "mimic_junonia", drop = FALSE)
+Limenitis <- subset(count, species == "mimic_limenitis", drop = FALSE)
+```
+
+### Assumptions for Generalized Linear Mixed Model with Poisson Distribution
+
+1. The variance is equal to the mean. Overdispersion can occur when your variance is much higher than your mean. DHARMa provides effective tools to quantify overdispersion, and when it is present, you would want to consider quasi-Poisson, negative binomial, or zero-inflated models (see CRAN package link above). 
+
+* Code below shows the results of tests for over-dispersion and zero inflation were negative using the DHARMa package
+
+2. The response variable is non-negative integer data. 
+
+* YES
+
+3. The responses are independent from one another. 
+
+* How do I test this? 
+
+4. The responses occur over fixed time or space. 
+
+* How do I test this?
+
+### Assumptions for Generalized Linear Mixed Model with Negative Binomial Distribution
+
+"Negative binomial regression shares many common assumptions with Poisson regression, such as linearity in model parameters, independence of individual observations, and the multiplicative effects of independent variables. However, comparing with Poisson regression, negative binomial regression allows the conditional variance of the outcome variable to be greater than its conditional mean, which offers greater flexibility in model fitting. Note that negative binomial regression does not handle the underdispersion situation, where the conditional variance is smaller than the conditional mean. Fortunately, underdispersion is rare in practice."
+
+* The negative binomial distribution is similar to the Poisson except it has an additional parameter called a scale parameter. The scale parameter (𝜹) allows the variance to be larger (or smaller) than the mean and may reduce or remedy the over-dispersion problem. Some argue that the negative binomial should always be used for agricultural data while others disagree. 
+
+### **BATTUS: MODEL TRIAL**
+
+#### Model fitting, Assumptions & Residuals Check 
+
+```{r}
+# histogram of attacks on battus
+hist(Battus$attacks)  #concerns about zero inflation based on histogram? 
+
+# check variance and mean to assess for over /  under - dispersion 
+var(Battus$attacks)
+mean(Battus$attacks) # variance is greater than mean, which indicates that over-dispersion might be an issue 
+
+# write glmms using glmer() function (to account for random site effects) 
+
+m1 <- glmer(attacks ~ day + (1|site), data =  Battus, family = poisson)
+m2 <- glmer(attacks ~ time.delay + (1|site), data =  Battus, family = poisson)
+m3 <- glmer(attacks ~ day*time.delay + (1|site), data =  Battus, family = poisson)
+m4 <- glmer(attacks ~ day + time.delay + (1|site), data =  Battus, family = poisson)
+
+# use anova() function to assess model fit 
+anova(m1, m2, m3, m4) ### m1 is best fit (day is the only explanatory variable that affects attack rates)
+
+# use DHARMa package to confirm that model assumptions are met and check that residuals are consistent with the chosen distribution 
+
+m1simulation <- simulateResiduals(fittedModel = m1, plot = T)
+
+##under H0 (perfect model), we would expect those boxes to range homogeneously from 0.25-0.75. To see whether there are deviations from this expectation, the plot calculates a test for uniformity per box, and a test for homogeneity of variances between boxes. A positive test will be highlighted in red.
+
+testUniformity(m1simulation) 
+testOutliers(m1simulation)
+testDispersion(m1simulation) 
+testZeroInflation(m1simulation) 
+
+# In statistics, a zero-inflated model is a statistical model based on a zero-inflated probability distribution, i.e. a distribution that allows for frequent zero-valued observations.
+
+# Zero-inflated negative binomial regression is for modeling count variables with excessive zeros and it is usually for over-dispersed count outcome variables. Furthermore, theory suggests that the excess zeros are generated by a separate process from the count values and that the excess zeros can be modeled independently.
+```
+
+#### Notes on Uniformity & KS test: 
+
+* plotQQunif (left panel) creates a qq-plot to detect overall deviations from the expected distribution, by default with added tests for correct distribution (KS test), dispersion and outliers. Note that outliers in DHARMa are values that are by default defined as values outside the simulation envelope, not in terms of a particular quantile. Thus, which values will appear as outliers will depend on the number of simulations. If you want outliers in terms of a particuar quantile, you can use the outliers() function.
+
+* the p-value shows you that there is a significant deviation from the assumed distribution, but significance != effect size. In other words, if you have a large number of data points, even the slightest deviation will become significant. This is more or less what I think is going on here. SOURCE: https://github.com/florianhartig/DHARMa/issues/181
+
+* KS test for correct distribution of residuals -  this test basically checks if the specified distribution matches the data 
+
+
+```{r} 
+# the uniformity test on the selected poisson model (above) showed significant deviation from uniformity, suggesting that the poisson distribution is not the best fit for my data. Using the binomial distribution instead might fix these issues 
+
+# glmms with binomial distribution 
+m5 <- glmer.nb(attacks ~ day + (1|site), data = Battus, verbose=FALSE)
+m6 <- glmer.nb(attacks ~ time.delay + (1|site), data = Battus, verbose=FALSE)
+m7 <- glmer.nb(attacks ~ day*time.delay + (1|site), data = Battus, verbose=FALSE)
+m8 <- glmer.nb(attacks ~ day + time.delay + (1|site), data = Battus, verbose=FALSE)
+
+anova(m5, m6, m7, m8)
+anova(m1, m5) # no significant difference in fit between the poisson model and the negative binomial model. Negative binomial model might fix issues with uniformity, so I will run residuals checks on the best fit model with that distribution 
+```
+
+```{r}
+m5simulation <- simulateResiduals(fittedModel = m5, plot = T)
+
+testUniformity(m5simulation) 
+testOutliers(m5simulation)
+testDispersion(m5simulation)
+testZeroInflation(m5simulation)
+
+# SUMMARY: the poisson model has a lower AIC score than the binomial model. With the poisson model, I get a significant deviation in the KS test, which suggests that data are not uniform with respect to the specified distribution. To correct for this, I fitted another model with a negative binomial distribution, this model had a slightly larger AIC score, but corrected for the significant deviation in the KS test. Given that, which model should I use???? 
+```
+
+
+#### Model output & pairwise tukey test
+
+```{r}
+summary(m1)
+emmeans(m1, pairwise ~ day) ### pairwise analysis to look at patterns of significance between specific days 
+```
+
+```{r}
+summary(m5)
+emmeans(m5, pairwise ~ day) 
+```
+
+
+### **JUNONIA: MODEL TRIAL**
+
+#### Model fitting, Assumptions & Residuals Check 
+
+```{r}
+# histogram of attacks on junonia in model trial 
+hist(Model_Junonia$attacks) # concerns about zero inflation based on histogram 
+
+# check variance and mean to assess for over / under - dispersion 
+var(Model_Junonia$attacks)
+mean(Model_Junonia$attacks) # variance is greater than mean, which indicates that over dispersion might be an issue 
+
+# fit poisson and negative binomial glmms and use the anova() function to test for model fit 
+j.m1 <- glmer(attacks ~ day + (1|site), data =  Model_Junonia, family = poisson)
+j.m2 <- glmer(attacks ~ time.delay + (1|site), data =  Model_Junonia, family = poisson)
+j.m3 <- glmer(attacks ~ day*time.delay + (1|site), data =  Model_Junonia, family = poisson)
+j.m4 <- glmer(attacks ~ day +  time.delay + (1|site), data =  Model_Junonia, family = poisson)
+j.m5 <- glmer.nb(attacks ~ day + (1|site), data = Model_Junonia, verbose=FALSE)
+j.m6 <- glmer.nb(attacks ~ time.delay + (1|site), data = Model_Junonia, verbose=FALSE)
+j.m7 <- glmer.nb(attacks ~ day*time.delay + (1|site), data = Model_Junonia, verbose=FALSE)
+j.m8 <- glmer.nb(attacks ~ day + time.delay + (1|site), data = Model_Junonia, verbose=FALSE)
+
+anova(j.m1, j.m2, j.m3, j.m4) # model 1 is best fit (poisson models)
+anova(j.m5, j.m6, j.m7, j.m8) # model 5 is best fit (binomial models)
+anova(j.m1, j.m5) # no significant difference in fit between the model of (attacks ~ day) with poisson and negative binomial distribution  
+```
+
+```{r}
+# assumptions and residual checks for poisson model with best fit 
+
+j.m1simulation <- simulateResiduals(fittedModel = j.m1, plot = T)
+
+testUniformity(j.m1simulation)
+testOutliers(j.m1simulation)
+testDispersion(j.m1simulation) 
+testZeroInflation(j.m1simulation) 
+```
+
+```{r}
+# assumptions and residual checks for negative binomial model with best fit 
+
+j.m5simulation <- simulateResiduals(fittedModel = j.m5, plot = T)
+
+testUniformity(j.m5simulation) 
+testOutliers(j.m5simulation)
+testDispersion(j.m5simulation) 
+testZeroInflation(j.m5simulation) 
+```
+
+#### Model output & pairwise tukey test
+
+```{r}
+summary(j.m1)
+emmeans(j.m1, pairwise ~ day) ### pairwise analysis to look at patterns of significance related to day 1, specifically 
+```
+
+```{r}
+summary(j.m5)
+emmeans(j.m5, pairwise ~ day) 
+```
+
+
+### **LIMENITIS: MIMIC TRIAL**
+
+#### Model fitting, Assumptions & Residuals Check 
+
+```{r}
+# histogram of attacks on limenitis 
+hist(Limenitis$attacks) # concerns about zero inflation based on histogram 
+
+# check variance and mean to assess for over / under - dispersion 
+var(Limenitis$attacks)
+mean(Limenitis$attacks)# variance is greater than mean, which indicates that over dispersion might be an issue 
+
+# write poisson and negative binomial models 
+l.m1 <- glmer(attacks ~ day + (1|site), data =  Limenitis, family = poisson)
+l.m2 <- glmer(attacks ~ time.delay + (1|site), data =  Limenitis, family = poisson)
+l.m3 <- glmer(attacks ~ day*time.delay + (1|site), data =  Limenitis, family = poisson)
+l.m4 <- glmer(attacks ~ day + time.delay + (1|site), data =  Limenitis, family = poisson)
+l.m5 <- glmer.nb(attacks ~ day + (1|site), data = Limenitis, verbose=FALSE)
+l.m6 <- glmer.nb(attacks ~ time.delay + (1|site), data = Limenitis, verbose=FALSE)
+l.m7 <- glmer.nb(attacks ~ day*time.delay + (1|site), data = Limenitis, verbose=FALSE)
+l.m8 <- glmer.nb(attacks ~ day + time.delay + (1|site), data = Limenitis, verbose=FALSE)
+
+# use anova() to assess for best fit 
+anova(l.m1, l.m2, l.m3, l.m4) # model 1 is the best fit (barely) among poisson models. Model 3 was also significant 
+anova(l.m5, l.m6, l.m7, l.m8) # no significant differences between models (model 7 is close)
+anova(l.m1, l.m3,l.m7) # no significant differences in fit between the three best fitting models
+anova(l.m1, l.m5) # significant difference in fit between (attacks ~ day) models fitted to the poisson and negative binomial distribution 
+```
+
+```{r}
+# assumptions and residual checks for poisson model with best fit 
+
+l.m1simulation <- simulateResiduals(fittedModel = l.m1, plot = T)
+
+testUniformity(l.m1simulation)
+testOutliers(l.m1simulation)
+testDispersion(l.m1simulation) 
+testZeroInflation(l.m1simulation) 
+```
+
+#### Model output & pairwise tukey test
+
+```{r}
+summary(l.m1)
+emmeans(l.m1, pairwise ~ day) ### pairwise analysis to look at patterns of significance related to day 1, specifically 
+```
+
+### **JUNONIA: MIMIC TRIAL**
+
+#### Model fitting, Assumptions & Residuals Check 
+
+```{r}
+# histogram of attacks on junonia during mimic trial 
+hist(Mimic_Junonia$attacks) # concerns about zero inflation based on histogram 
+
+# check variance and mean to assess for over / under - dispersion 
+var(Mimic_Junonia$attacks)
+mean(Mimic_Junonia$attacks) # variance is greater than mean, which indicates that over dispersion might be an issue 
+
+# fit models with poisson and negative binomial distribution 
+jmi.m1 <- glmer(attacks ~ day + (1|site), data =  Mimic_Junonia, family = poisson)
+jmi.m2 <- glmer(attacks ~ time.delay + (1|site), data =  Mimic_Junonia, family = poisson)
+jmi.m3 <- glmer(attacks ~ day*time.delay + (1|site), data =  Mimic_Junonia, family = poisson)
+jmi.m4 <- glmer(attacks ~ day +  time.delay + (1|site), data =  Mimic_Junonia, family = poisson)
+jmi.m5 <- glmer.nb(attacks ~ day + (1|site), data = Mimic_Junonia, verbose=FALSE)
+jmi.m6 <- glmer.nb(attacks ~ time.delay + (1|site), data = Mimic_Junonia, verbose=FALSE)
+jmi.m7 <- glmer.nb(attacks ~ day*time.delay + (1|site), data = Mimic_Junonia, verbose=FALSE)
+jmi.m8 <- glmer.nb(attacks ~ day +  time.delay + (1|site), data = Mimic_Junonia, verbose=FALSE)
+
+# use anova() function to assess model fit 
+anova(jmi.m1, jmi.m2, jmi.m3, jmi.m4) # model 1 is best fit 
+anova(jmi.m5, jmi.m6, jmi.m7, jmi.m8) # model 5 is best fit 
+anova(jmi.m1, jmi.m5) # no significant difference in fit between the two models 
+```
+
+```{r}
+# assumptions and residual checks for poisson model with best fit 
+
+jmi.m1simulation <- simulateResiduals(fittedModel = jmi.m1, plot = T)
+
+testUniformity(jmi.m1simulation) ### Significant deviation in the KS test  
+testOutliers(jmi.m1simulation)
+testDispersion(jmi.m1simulation) 
+testZeroInflation(jmi.m1simulation) 
+```
+
+```{r}
+# assumptions and residual checks for negative binomial  model with best fit 
+
+jmi.m5simulation <- simulateResiduals(fittedModel = jmi.m5, plot = T)
+
+testUniformity(jmi.m5simulation) ### Negative Binomial distribution fixed the uniformity issues
+testOutliers(jmi.m5simulation)
+testDispersion(jmi.m5simulation) 
+testZeroInflation(jmi.m5simulation) 
+```
+
+#### Model output & pairwise tukey test
+
+```{r}
+summary(jmi.m1)
+emmeans(jmi.m1, pairwise ~ day) ### pairwise analysis to look at patterns of significance related to day 1, specifically 
+```
+
+```{r}
+summary(jmi.m5)
+emmeans(jmi.m5, pairwise ~ day) 
+```
+
+## [2] Do total attack rates differ between battus and limenitis, relative to their controls? {.tabset}
+
+i.e. Under what temporal conditions does Limenitis benefit from mimicry via reduced predation? 
+
+### Load summed data (attacks are not separated by day)
+```{r}
+# summing attacks across all days should reduce any artificial effects of zero inflation 
+a <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.days.data.csv")
+al.data <- read.csv(a, header = TRUE, sep = ",")
+head(al.data)
+```
+
+```{r}
+# write poisson and binomial models for all summed count data 
+a.m1 <- glmer(attacks ~ trial + species + time.delay + (1|site), data =  al.data, family = poisson)
+a.m2 <- glmer(attacks ~ trial*species + time.delay + (1|site), data =  al.data, family = poisson)
+a.m3 <- glmer(attacks ~ trial*species + (1|site), data =  al.data, family = poisson)
+a.m4 <- glmer(attacks ~ trial + (1|site), data =  al.data, family = poisson)
+a.m5 <- glmer.nb(attacks ~ trial + species + time.delay + (1|site), data = al.data, verbose=FALSE)
+a.m6 <- glmer.nb(attacks ~ trial*species + time.delay + (1|site), data = al.data, verbose=FALSE)
+a.m7 <- glmer.nb(attacks ~ trial*species + (1|site), data = al.data, verbose=FALSE)
+a.m8 <- glmer.nb(attacks ~ trial + (1|site), data = al.data, verbose=FALSE)
+
+# assess model fit with the anova() function 
+anova(a.m1, a.m2, a.m3, a.m4) # model 3 is best fit 
+anova(a.m5, a.m6, a.m7, a.m8) # model 7 is best fit (not significant)
+```
+
+```{r}
+# assumptions and residual checks 
+
+a.m3simulation <- simulateResiduals(fittedModel = a.m3, plot = T)
+
+testUniformity(a.m3simulation)
+testOutliers(a.m3simulation)
+testDispersion(a.m3simulation) 
+testZeroInflation(a.m3simulation) 
+
+summary(a.m3)
+
+# NOTE: I don't want to directly compare between trials because we saw higher attack rates overall in the model trial compared to the mimic trial. To account for this, we will compare attack rates between battus and limenitis by modeling them relative to their controls
+```
+
+### Analysis with all experimental days 
+
+```{r}
+# subset out model and mimic data to analyze separately 
+al.models <- subset(al.data, trial == "model", drop = FALSE)
+al.mimics <- subset(al.data, trial == "mimic", drop = FALSE)
+```
+
+#### Models (Battus)
+
+```{r}
+# ASSUMPTIONS AND RESIDUAL CHECKS 
+
+# histogram of attacks on battus 
+hist(al.models$attacks) # concerns about zero inflation based on histogram 
+
+# check variance and mean to assess for over / under - dispersion 
+var(al.models$attacks)
+mean(al.models$attacks) # variance is greater than mean, which indicates that over-dispersion might be an issue 
+
+# write poisson and negative binomial models 
+al.mod1 <- glmer(attacks ~ species + (1|site), data =  al.models, family = poisson)
+al.mod2 <- glmer(attacks ~ time.delay + (1|site), data =  al.models, family = poisson)
+al.mod3 <- glmer(attacks ~ species*time.delay + (1|site), data =  al.models, family = poisson)
+al.mod4 <- glmer(attacks ~ species + time.delay + (1|site), data =  al.models, family = poisson)
+al.mod5 <- glmer.nb(attacks ~ species + (1|site), data = al.models, verbose=FALSE) 
+al.mod6 <- glmer.nb(attacks ~ time.delay + (1|site), data = al.models, verbose=FALSE)
+al.mod7 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = al.models, verbose=FALSE)
+al.mod8 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = al.models, verbose=FALSE)
+
+# model fitting 
+anova(al.mod1, al.mod2, al.mod3, al.mod4)
+anova(al.mod5, al.mod6, al.mod7, al.mod8)
+# no significant model differences
+```
+
+```{r}
+# assumptions and residual checks for poisson model with best fit 
+
+al.mod1simulation <- simulateResiduals(fittedModel = al.mod1, plot = T) 
+
+testUniformity(al.mod1simulation) 
+testOutliers(al.mod1simulation)
+testDispersion(al.mod1simulation) 
+testZeroInflation(al.mod1simulation) 
+```
+
+```{r}
+# assumptions and residual checks for negative binomial model with best fit 
+
+al.mod5simulation <- simulateResiduals(fittedModel = al.mod5, plot = T) 
+
+testUniformity(al.mod5simulation) 
+testOutliers(al.mod5simulation)
+testDispersion(al.mod5simulation) 
+testZeroInflation(al.mod5simulation) 
+```
+
+```{r}
+# poisson model seems to be ~not working~ how can I diagnose this problem? should I just go with the negative binomial? 
+summary(al.mod1)
+```
+
+```{r}
+# negative binomial model with best fit 
+summary(al.mod5)
+```
+
+#### Mimics (Limenitis)
+
+```{r}
+# histogram of limenitis attacks 
+hist(al.mimics$attacks) # concerns about zero inflation based on histogram 
+
+# check variance and mean to assess for over / under - dispersion 
+var(al.mimics$attacks)
+mean(al.mimics$attacks) # variance and mean suggests that data are pretty over-dispersed 
+
+# model fitting 
+al.mim1 <- glmer(attacks ~ species + (1|site), data =  al.mimics, family = poisson)
+al.mim2 <- glmer(attacks ~ time.delay + (1|site), data =  al.mimics, family = poisson)
+al.mim3 <- glmer(attacks ~ species*time.delay + (1|site), data =  al.mimics, family = poisson)
+al.mim4 <- glmer(attacks ~ species + time.delay + (1|site), data =  al.mimics, family = poisson)
+al.mim5 <- glmer.nb(attacks ~ species + (1|site), data = al.mimics, verbose=FALSE) 
+al.mim6 <- glmer.nb(attacks ~ time.delay + (1|site), data = al.mimics, verbose=FALSE)
+al.mim7 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = al.mimics, verbose=FALSE)
+al.mim8 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = al.mimics, verbose=FALSE)
+
+anova(al.mim1, al.mim2, al.mim3, al.mim4) 
+anova(al.mim5, al.mim6, al.mim7, al.mim8)
+
+# no significant differences between models 
+```
+
+```{r}
+al.mim5simulation <- simulateResiduals(fittedModel = al.mim5, plot = T) # negative binomial 
+
+testUniformity(al.mim5simulation) 
+testOutliers(al.mim5simulation)
+testDispersion(al.mim5simulation) 
+testZeroInflation(al.mim5simulation) 
+```
+
+```{r}
+summary(al.mim5)
+```
+
+### Analysis with post-learning days 
+
+```{r}
+# Post learning days (days 2-4 summed)
+  # day 1 is the only day when birds are naive to our model's signal, so attacks on this day do not reflect learned behavior 
+
+p <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.post.learning.days.data.csv")
+pl.data <- read.csv(p, header = TRUE, sep = ",")
+head(pl.data)
+```
+
+```{r}
+pl.models <- subset(pl.data, trial == "model", drop = FALSE)
+pl.mimics <- subset(pl.data, trial == "mimic", drop = FALSE)
+```
+
+#### Models (Battus)
+
+```{r}
+hist(pl.models$attacks) # concerns about zero inflation based on histogram 
+
+var(pl.models$attacks)
+mean(pl.models$attacks)
+
+# write poisson and negative binomial models 
+pl.mod1 <- glmer(attacks ~ species + (1|site), data =  pl.models, family = poisson)
+pl.mod2 <- glmer(attacks ~ time.delay + (1|site), data =  pl.models, family = poisson)
+pl.mod3 <- glmer(attacks ~ species*time.delay + (1|site), data =  pl.models, family = poisson)
+pl.mod4 <- glmer(attacks ~ species + time.delay + (1|site), data =  pl.models, family = poisson)
+pl.mod5 <- glmer.nb(attacks ~ species + (1|site), data = pl.models, verbose=FALSE) 
+pl.mod6 <- glmer.nb(attacks ~ time.delay + (1|site), data = pl.models, verbose=FALSE)
+pl.mod7 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = pl.models, verbose=FALSE)
+pl.mod8 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = pl.models, verbose=FALSE)
+
+# model fitting 
+anova(pl.mod1, pl.mod2, pl.mod3, pl.mod4) # model 4 is best fit 
+anova(pl.mod5, pl.mod6, pl.mod7, pl.mod8) # mode 8 is best fit 
+anova(pl.mod4, pl.mod8) # no significant difference between the poisson and negative binomial models 
+```
+
+```{r}
+# assumptions check for model 4
+pl.mod4simulation <- simulateResiduals(fittedModel = pl.mod4, plot = T)
+
+testUniformity(pl.mod4simulation) 
+testOutliers(pl.mod4simulation)
+testDispersion(pl.mod4simulation)
+testZeroInflation(pl.mod4simulation) 
+```
+
+```{r}
+# assumptions check for model 8
+pl.mod8simulation <- simulateResiduals(fittedModel = pl.mod8, plot = T)
+
+testUniformity(pl.mod8simulation) 
+testOutliers(pl.mod8simulation)
+testDispersion(pl.mod8simulation)
+testZeroInflation(pl.mod8simulation) 
+```
+
+```{r}
+summary(pl.mod8) 
+```
+
+```{r}
+summary(pl.mod4) 
+```
+
+#### Mimics (Limenitis)
+
+```{r}
+hist(pl.mimics$attacks) # concerns about zero inflation based on histogram 
+
+var(pl.mimics$attacks)
+mean(pl.mimics$attacks) # variance is greater than mean, which indicates that over-dispersion might be an issue 
+
+# model fitting 
+pl.mim1 <- glmer(attacks ~ species + (1|site), data =  pl.mimics, family = poisson)
+pl.mim2 <- glmer(attacks ~ time.delay + (1|site), data =  pl.mimics, family = poisson)
+pl.mim3 <- glmer(attacks ~ species*time.delay + (1|site), data =  pl.mimics, family = poisson)
+pl.mim4 <- glmer(attacks ~ species + time.delay + (1|site), data =  pl.mimics, family = poisson)
+pl.mim5 <- glmer.nb(attacks ~ species + (1|site), data = pl.mimics, verbose=FALSE) 
+pl.mim6 <- glmer.nb(attacks ~ time.delay + (1|site), data = pl.mimics, verbose=FALSE)
+pl.mim7 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = pl.mimics, verbose=FALSE)
+pl.mim8 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = pl.mimics, verbose=FALSE)
+
+anova(pl.mim1, pl.mim2, pl.mim3, pl.mim4) 
+anova(pl.mim5, pl.mim6, pl.mim7, pl.mim8)
+# no significant differences between models 
+```
+
+```{r}
+pl.mim5simulation <- simulateResiduals(fittedModel = pl.mim5, plot = T) 
+
+testUniformity(pl.mim5simulation) 
+testOutliers(pl.mim5simulation)
+testDispersion(pl.mim5simulation) 
+testZeroInflation(pl.mim5simulation) 
+```
+
+```{r}
+summary(pl.mim5) 
+```
+
+## [3] When is limenitis protected from predation (four-week exp, two-week exp, one-week exp, or simultaneous exp)? {.tabset}
+
+### Analysis with attack counts on days 1 - 4 summed (all attack data)
+
+#### Modals (Battus)
+
+```{r}
+# attack counts on battus and junonia for time delayed trials: four, two, one, & zero 
+b <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.exp.model.data.csv")
+model.time <- read.csv(b, header = TRUE, sep = ",")
+head(model.time)
+```
+
+```{r}
+hist(model.time$attacks) 
+var(model.time$attacks)
+mean(model.time$attacks)
+
+# write poisson and negative binomial models 
+time.mod1 <- glmer(attacks ~ species + (1|site), data =  model.time, family = poisson)
+time.mod2 <- glmer(attacks ~ time.delay + (1|site), data =  model.time, family = poisson)
+time.mod3 <- glmer(attacks ~ time.delay/species + (1|site), data =  model.time, family = poisson)
+time.mod4 <- glmer(attacks ~ species + time.delay + (1|site), data =  model.time, family = poisson)
+time.mod5 <- glmer(attacks ~ species*time.delay + (1|site), data =  model.time, family = poisson)
+time.mod6 <- glmer.nb(attacks ~ species + (1|site), data = model.time, verbose=FALSE) 
+time.mod7 <- glmer.nb(attacks ~ time.delay + (1|site), data = model.time, verbose=FALSE)
+time.mod8 <- glmer.nb(attacks ~ time.delay/species + (1|site), data = model.time, verbose=FALSE)
+time.mod9 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = model.time, verbose=FALSE)
+time.mod10 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = model.time, verbose=FALSE)
+
+# model fitting 
+anova(time.mod1, time.mod2, time.mod3, time.mod4, time.mod5) # model 4 best fit
+anova(time.mod6, time.mod7, time.mod8, time.mod9, time.mod10) # model 9 best fit 
+```
+
+```{r}
+time.mod4simulation <- simulateResiduals(fittedModel = time.mod4, plot = T) 
+
+testUniformity(time.mod4simulation) 
+testOutliers(time.mod4simulation)
+testDispersion(time.mod4simulation) 
+testZeroInflation(time.mod4simulation) 
+```
+
+```{r}
+summary(time.mod4) 
+```
+
+```{r}
+# replication of model selected for mimic analysis (below)
+time.mod8simulation <- simulateResiduals(fittedModel = time.mod8, plot = T) 
+
+testUniformity(time.mod8simulation) 
+testOutliers(time.mod8simulation)
+testDispersion(time.mod8simulation) 
+testZeroInflation(time.mod8simulation) 
+```
+
+```{r}
+summary(time.mod8) 
+```
+
+#### Mimics (Limenitis)
+
+```{r}
+# attack counts on limenitis and junonia for time delayed trials: four, two, one, & zero 
+l <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.exp.mimic.data.csv")
+mimic.time <- read.csv(l, header = TRUE, sep = ",")
+head(mimic.time)
+```
+
+```{r}
+hist(mimic.time$attacks) 
+var(mimic.time$attacks)
+mean(mimic.time$attacks)
+
+# write poisson and negative binomial models 
+time.mim1 <- glmer(attacks ~ species + (1|site), data =  mimic.time, family = poisson)
+time.mim2 <- glmer(attacks ~ time.delay + (1|site), data =  mimic.time, family = poisson)
+time.mim3 <- glmer(attacks ~ time.delay/species + (1|site), data =  mimic.time, family = poisson)
+time.mim4 <- glmer(attacks ~ species + time.delay + (1|site), data =  mimic.time, family = poisson)
+time.mim5 <- glmer(attacks ~ species*time.delay + (1|site), data =  mimic.time, family = poisson)
+time.mim6 <- glmer.nb(attacks ~ species + (1|site), data = mimic.time, verbose=FALSE) 
+time.mim7 <- glmer.nb(attacks ~ time.delay + (1|site), data = mimic.time, verbose=FALSE)
+time.mim8 <- glmer.nb(attacks ~ time.delay/species + (1|site), data = mimic.time, verbose=FALSE)
+time.mim9 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = mimic.time, verbose=FALSE)
+time.mim10 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = mimic.time, verbose=FALSE)
+
+# model fitting 
+anova(time.mim1, time.mim2, time.mim3, time.mim4, time.mim5) # model 3 is best fit 
+anova(time.mim6, time.mim7, time.mim8, time.mim9, time.mim10) # model 8 is best fit 
+anova(time.mim3, time.mim8) # model 8 (negative binomial) is significantly better fit? 
+```
+
+```{r}
+time.mim8simulation <- simulateResiduals(fittedModel = time.mim8, plot = T) 
+
+testUniformity(time.mim8simulation) 
+testOutliers(time.mim8simulation)
+testDispersion(time.mim8simulation) 
+testZeroInflation(time.mim8simulation) 
+```
+
+```{r}
+summary(time.mim8) 
+```
+
+### Analysis with attack counts on days 2 - 4 summed (post learning attack data)
+
+#### Modals (Battus)
+
+```{r}
+# attack counts on battus and junonia for time delayed trials: four, two, one, & zero 
+b <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.exp.model.data.pld.csv")
+model.time.pld <- read.csv(b, header = TRUE, sep = ",")
+head(model.time.pld)
+```
+
+```{r}
+hist(model.time.pld$attacks) 
+var(model.time.pld$attacks)
+mean(model.time.pld$attacks)
+
+# write poisson and negative binomial models 
+pld.time.mod1 <- glmer(attacks ~ species + (1|site), data =  model.time.pld, family = poisson)
+pld.time.mod2 <- glmer(attacks ~ time.delay + (1|site), data =  model.time.pld, family = poisson)
+pld.time.mod3 <- glmer(attacks ~ time.delay/species + (1|site), data =  model.time.pld, family = poisson)
+pld.time.mod4 <- glmer(attacks ~ species + time.delay + (1|site), data =  model.time.pld, family = poisson)
+pld.time.mod5 <- glmer(attacks ~ species*time.delay + (1|site), data =  model.time.pld, family = poisson)
+pld.time.mod6 <- glmer.nb(attacks ~ species + (1|site), data = model.time.pld, verbose=FALSE) 
+pld.time.mod7 <- glmer.nb(attacks ~ time.delay + (1|site), data = model.time.pld, verbose=FALSE)
+pld.time.mod8 <- glmer.nb(attacks ~ time.delay/species + (1|site), data = model.time.pld, verbose=FALSE)
+pld.time.mod9 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = model.time.pld, verbose=FALSE)
+pld.time.mod10 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = model.time.pld, verbose=FALSE)
+
+# model fitting 
+anova(pld.time.mod1, pld.time.mod2, pld.time.mod3, pld.time.mod4, pld.time.mod5) # model 4 is best fit 
+anova(pld.time.mod6, pld.time.mod7, pld.time.mod8, pld.time.mod9, pld.time.mod10) # model 9 is best fit 
+anova(pld.time.mod4, pld.time.mod9) # no significant difference between poisson and negative binomial models 
+```
+
+```{r}
+pld.time.mod4simulation <- simulateResiduals(fittedModel = pld.time.mod4, plot = T) 
+
+testUniformity(pld.time.mod4simulation) 
+testOutliers(pld.time.mod4simulation)
+testDispersion(pld.time.mod4simulation) 
+testZeroInflation(pld.time.mod4simulation) 
+```
+
+```{r}
+summary(pld.time.mod4) 
+
+# significant difference in attack rates between battus and junonia 
+# no significant differences in attacks between trials 
+```
+
+#### Mimics (Limenitis)
+
+```{r}
+# attack counts on limenitis and junonia for time delayed trials: four, two, one, & zero 
+l <- curl("https://raw.githubusercontent.com/butterfliesrcool/Quabbin_Data/main/quabbin.all.exp.mimic.data.pld.csv")
+pld.mimic.time <- read.csv(l, header = TRUE, sep = ",")
+head(pld.mimic.time)
+```
+
+```{r}
+hist(pld.mimic.time$attacks) 
+var(pld.mimic.time$attacks)
+mean(pld.mimic.time$attacks)
+
+# write poisson and negative binomial models 
+pld.time.mim1 <- glmer(attacks ~ species + (1|site), data =  pld.mimic.time, family = poisson)
+pld.time.mim2 <- glmer(attacks ~ time.delay + (1|site), data =  pld.mimic.time, family = poisson)
+pld.time.mim3 <- glmer(attacks ~ time.delay/species + (1|site), data =  pld.mimic.time, family = poisson)
+pld.time.mim4 <- glmer(attacks ~ species + time.delay + (1|site), data =  pld.mimic.time, family = poisson)
+pld.time.mim5 <- glmer(attacks ~ species*time.delay + (1|site), data =  pld.mimic.time, family = poisson)
+pld.time.mim6 <- glmer.nb(attacks ~ species + (1|site), data = pld.mimic.time, verbose=FALSE) 
+pld.time.mim7 <- glmer.nb(attacks ~ time.delay + (1|site), data = pld.mimic.time, verbose=FALSE)
+pld.time.mim8 <- glmer.nb(attacks ~ time.delay/species + (1|site), data = pld.mimic.time, verbose=FALSE)
+pld.time.mim9 <- glmer.nb(attacks ~ species + time.delay + (1|site), data = pld.mimic.time, verbose=FALSE)
+pld.time.mim10 <- glmer.nb(attacks ~ species*time.delay + (1|site), data = pld.mimic.time, verbose=FALSE)
+
+# model fitting 
+anova(pld.time.mim1, pld.time.mim2, pld.time.mim3, pld.time.mim4, pld.time.mim5) 
+anova(pld.time.mim6, pld.time.mim7, pld.time.mim8, pld.time.mim9, pld.time.mim10)
+```
+
+```{r}
+# assumptions check to replicate model with all data 
+pld.time.mim8simulation <- simulateResiduals(fittedModel = pld.time.mim8, plot = T) 
+
+testUniformity(pld.time.mim8simulation) 
+testOutliers(pld.time.mim8simulation)
+testDispersion(pld.time.mim8simulation) 
+testZeroInflation(pld.time.mim8simulation) 
+```
+
+```{r}
+summary(pld.time.mim8) 
+```
